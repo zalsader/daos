@@ -262,19 +262,21 @@ func prepBdevStorage(srv *server, iommuEnabled bool) error {
 
 // scanBdevStorage performs discovery and validates existence of configured NVMe SSDs.
 func scanBdevStorage(srv *server) (*storage.BdevScanResponse, error) {
-	nvmeScanResp, err := srv.ctlSvc.NvmeScan(storage.BdevScanRequest{
-		DeviceList:  cfgGetBdevs(srv.cfg),
-		BypassCache: true, // init cache on first scan
-	})
-	if err != nil {
-		// Return error if fault code is for BdevNotFound.
-		if storage.FaultBdevNotFound().Equals(err) {
-			return nil, err
-		}
-		// Keep going for other scan related failures.
-		srv.log.Errorf("%s\n", errors.Wrap(err, "NVMe Scan Failed"))
-		return &storage.BdevScanResponse{}, nil
-	}
+	nvmeScanResp := &storage.BdevScanResponse{}
+
+	// nvmeScanResp, err := srv.ctlSvc.NvmeScan(storage.BdevScanRequest{
+	// 	DeviceList:  cfgGetBdevs(srv.cfg),
+	// 	BypassCache: true, // init cache on first scan
+	// })
+	// if err != nil {
+	// 	// Return error if fault code is for BdevNotFound.
+	// 	if storage.FaultBdevNotFound().Equals(err) {
+	// 		return nil, err
+	// 	}
+	// 	// Keep going for other scan related failures.
+	// 	srv.log.Errorf("%s\n", errors.Wrap(err, "NVMe Scan Failed"))
+	// 	return &storage.BdevScanResponse{}, nil
+	// }
 
 	return nvmeScanResp, nil
 }
