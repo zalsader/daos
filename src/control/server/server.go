@@ -250,11 +250,12 @@ func (srv *server) addEngines(ctx context.Context) error {
 	// Store cached NVMe device details retrieved on start-up (before
 	// engines are started) so static details can be recovered by the engine
 	// storage provider(s) during scan even if devices are in use.
-	nvmeScanResp, err := srv.ctlSvc.NvmeScan(storage.BdevScanRequest{})
+	nvmeScanResp := &storage.BdevScanResponse{}
+	/*nvmeScanResp, err := srv.ctlSvc.NvmeScan(storage.BdevScanRequest{})
 	if err != nil {
 		srv.log.Errorf("nvme scan failed: %s", err)
 		nvmeScanResp = &storage.BdevScanResponse{}
-	}
+	}*/
 	if nvmeScanResp == nil {
 		return errors.New("nil nvme scan response received")
 	}

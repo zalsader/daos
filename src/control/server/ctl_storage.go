@@ -28,6 +28,9 @@ type StorageControlService struct {
 
 // Setup performs storage discovery and validates existence of configured devices.
 func (scs *StorageControlService) Setup() {
+	// Don't scan anything.
+	return
+
 	if _, err := scs.ScmScan(storage.ScmScanRequest{}); err != nil {
 		scs.log.Debugf("%s\n", errors.Wrap(err, "Warning, SCM Scan"))
 	}
