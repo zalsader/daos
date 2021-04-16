@@ -60,6 +60,9 @@ func NewMockStorageControlService(log logging.Logger, engineCfgs []*engine.Confi
 
 // Setup performs storage discovery and validates existence of configured devices.
 func (c *StorageControlService) Setup() {
+	// Don't scan anything.
+	return
+
 	if _, err := c.ScmScan(storage.ScmScanRequest{}); err != nil {
 		c.log.Debugf("%s\n", errors.Wrap(err, "Warning, SCM Scan"))
 	}
