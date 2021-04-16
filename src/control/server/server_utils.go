@@ -262,13 +262,15 @@ func prepBdevStorage(srv *server, iommuEnabled bool) error {
 
 // scanBdevStorage performs discovery and validates existence of configured NVMe SSDs.
 func scanBdevStorage(srv *server) *storage.BdevScanResponse {
-	nvmeScanResp, err := srv.ctlSvc.NvmeScan(storage.BdevScanRequest{
+	nvmeScanResp := &storage.BdevScanResponse{}
+
+/*	nvmeScanResp, err := srv.ctlSvc.NvmeScan(storage.BdevScanRequest{
 		DeviceList: cfgGetBdevs(srv.cfg),
 	})
 	if err != nil {
 		srv.log.Debugf("%s\n", errors.Wrap(err, "Warning, NVMe Scan Failed"))
 		return &storage.BdevScanResponse{}
-	}
+	}*/
 
 	return nvmeScanResp
 }
