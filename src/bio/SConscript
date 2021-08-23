@@ -16,6 +16,18 @@ def scons():
     SConscript('smd/SConscript')
     denv.AppendUnique(LIBPATH=['smd'])
     denv.AppendUnique(OBJPREFIX='b_')
+    ####### added from RSP-1M-iops-debug branch
+    denv.AppendUnique(LINKFLAGS=['-Wl,--whole-archive', \
+            '-lrte_mempool', '-lrte_mempool_ring', '-lrte_bus_pci', \
+            '-lrte_pci', '-lrte_ring', '-lrte_mbuf', '-lrte_eal', \
+            '-lrte_kvargs', \
+            '-Wl,--no-whole-archive'])
+
+    denv.AppendUnique(CPPPATH=['/usr/include/dpdk'])
+    # denv.AppendUnique(CPPPATH=['/home/stg/daos_12_flat_key/build/external/release/spdk/dpdk/build/include/rte_memcpy.h'])
+    
+    #########
+    
 
     # SPDK related libs
     libs = ['spdk_env_dpdk', 'spdk_thread', 'spdk_bdev', 'spdk_copy']

@@ -9,7 +9,6 @@
 #include <spdk/thread.h>
 #include "bio_internal.h"
 #include <rte_memcpy.h> // for fast memcpy
-
 static void
 dma_free_chunk(struct bio_dma_chunk *chunk)
 {
@@ -404,8 +403,9 @@ iod_add_chunk(struct bio_desc *biod, struct bio_dma_chunk *chk)
 			return -DER_NOMEM;
 
 		if (max != 0) {
-			memcpy(chunks, rsrvd_dma->brd_dma_chks, max * size); 
-			//rte_memcpy(chunks, rsrvd_dma->brd_dma_chks, max * size);
+			//memcpy(chunks, rsrvd_dma->brd_dma_chks, max * size);
+			D_DEBUG(DB_IO, "calling rte_memcpy"); 
+			rte_memcpy(chunks, rsrvd_dma->brd_dma_chks, max * size);
 			D_FREE(rsrvd_dma->brd_dma_chks);
 		}
 
@@ -439,8 +439,9 @@ iod_add_region(struct bio_desc *biod, struct bio_dma_chunk *chk,
 			return -DER_NOMEM;
 
 		if (max != 0) {
-			memcpy(rgs, rsrvd_dma->brd_regions, max * size);
-			//rte_memcpy(rgs, rsrvd_dma->brd_regions, max * size);
+			//memcpy(rgs, rsrvd_dma->brd_regions, max * size);
+			D_DEBUG(DB_IO, "calling rte_memcpy");
+			rte_memcpy(rgs, rsrvd_dma->brd_regions, max * size);
 			D_FREE(rsrvd_dma->brd_regions);
 		}
 
@@ -813,13 +814,16 @@ bio_memcpy(struct bio_desc *biod, uint16_t media, void *media_addr,
 		 */
 		pmemobj_memcpy_persist(umem->umm_pool, media_addr, addr, n);
 	} else {
-		if (biod->bd_update)
-			memcpy(media_addr, addr, n);
-			// rte_memcpy(media_addr, addr, n);
-		else
-			memcpy(addr, media_addr, n);
-			// rte_memcpy(media_addr, addr, n);
-	}
+		if (biod->bd_update){
+			//memcpy(media_addr, addr, n);
+			D_DEBUG(DB_IO, "calling rte_memcpy");
+			rte_memcpy(media_addr, addr, n);
+		} else {
+			D_DEBUG(DB_IO, "calling rte_memcpy");
+			// memcpy(addr, media_addr, n);
+			rte_memcpy(media_addr, addr, n);
+		}
+	}	
 }
 
 static int
