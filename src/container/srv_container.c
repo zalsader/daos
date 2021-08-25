@@ -393,7 +393,7 @@ cont_existence_check(struct rdb_tx *tx, struct cont_svc *svc,
 	/* Label provided in request - search for it in cs_uuids KVS
 	 * and perform additional sanity checks.
 	 */
-	d_iov_set(&key, clabel, strnlen(clabel, DAOS_PROP_LABEL_MAX_LEN + 1));
+	d_iov_set(&key, clabel, strnlen(clabel, DAOS_PROP_MAX_LABEL_BUF_LEN));
 	d_iov_set(&val, match_cuuid, sizeof(uuid_t));
 	rc = rdb_tx_lookup(tx, &svc->cs_uuids, &key, &val);
 	if (rc != -DER_NONEXIST) {
@@ -460,6 +460,7 @@ cont_create_prop_prepare(struct ds_pool_hdl *pool_hdl,
 		case DAOS_PROP_CO_CSUM:
 		case DAOS_PROP_CO_CSUM_CHUNK_SIZE:
 		case DAOS_PROP_CO_CSUM_SERVER_VERIFY:
+		case DAOS_PROP_CO_SCRUBBER_DISABLED:
 		case DAOS_PROP_CO_REDUN_FAC:
 		case DAOS_PROP_CO_REDUN_LVL:
 		case DAOS_PROP_CO_SNAPSHOT_MAX:
@@ -586,6 +587,15 @@ cont_prop_write(struct rdb_tx *tx, const rdb_path_t *kvs, daos_prop_t *prop,
 			rc = rdb_tx_update(tx, kvs,
 					   &ds_cont_prop_csum_server_verify,
 					   &value);
+			break;
+		case DAOS_PROP_CO_SCRUBBER_DISABLED:
+			d_iov_set(&value, &entry->dpe_val,
+				  sizeof(entry->dpe_val));
+			rc = rdb_tx_update(tx, kvs,
+					   &ds_cont_prop_scrubber_disabled,
+					   &value);
+			if (rc)
+				return rc;
 			break;
 		case DAOS_PROP_CO_DEDUP:
 			d_iov_set(&value, &entry->dpe_val,
@@ -837,7 +847,7 @@ cont_create(struct rdb_tx *tx, struct ds_pool_hdl *pool_hdl,
 		/* If we have come this far (see existence check), there must
 		 * not be an entry with this label in cs_uuids. Just update.
 		 */
-		d_iov_set(&key, lbl, strnlen(lbl, DAOS_PROP_LABEL_MAX_LEN + 1));
+		d_iov_set(&key, lbl, strnlen(lbl, DAOS_PROP_MAX_LABEL_BUF_LEN));
 		d_iov_set(&value, in->cci_op.ci_uuid, sizeof(uuid_t));
 		rc = rdb_tx_update(tx, &svc->cs_uuids, &key, &value);
 		if (rc != 0) {
@@ -1142,7 +1152,7 @@ cont_destroy(struct rdb_tx *tx, struct ds_pool_hdl *pool_hdl,
 	lbl_ent = daos_prop_entry_get(prop, DAOS_PROP_CO_LABEL);
 	if (lbl_ent) {
 		d_iov_set(&key, lbl_ent->dpe_str,
-			  strnlen(lbl_ent->dpe_str, DAOS_PROP_LABEL_MAX_LEN + 1));
+			  strnlen(lbl_ent->dpe_str, DAOS_PROP_MAX_LABEL_BUF_LEN));
 		d_iov_set(&val, NULL, 0);
 		rc = rdb_tx_lookup(tx, &cont->c_svc->cs_uuids, &key, &val);
 		if (rc != -DER_NONEXIST) {
@@ -1553,7 +1563,7 @@ cont_lookup_bylabel(struct rdb_tx *tx, const struct cont_svc *svc,
 	d_iov_t		val;
 	int		rc;
 
-	label_len = strnlen(label, DAOS_PROP_LABEL_MAX_LEN + 1);
+	label_len = strnlen(label, DAOS_PROP_MAX_LABEL_BUF_LEN);
 	if (!label || (label_len == 0) || (label_len > DAOS_PROP_LABEL_MAX_LEN))
 		return -DER_INVAL;
 
@@ -2104,6 +2114,18 @@ cont_prop_read(struct rdb_tx *tx, struct cont *cont, uint64_t bits,
 		prop->dpp_entries[idx].dpe_val = val;
 		idx++;
 	}
+	if (bits & DAOS_CO_QUERY_PROP_SCRUB_DIS) {
+		d_iov_set(&value, &val, sizeof(val));
+		rc = rdb_tx_lookup(tx, &cont->c_prop,
+				   &ds_cont_prop_scrubber_disabled, &value);
+		if (rc != 0)
+			D_GOTO(out, rc);
+		D_ASSERT(idx < nr);
+		prop->dpp_entries[idx].dpe_type =
+			DAOS_PROP_CO_SCRUBBER_DISABLED;
+		prop->dpp_entries[idx].dpe_val = val;
+		idx++;
+	}
 	if (bits & DAOS_CO_QUERY_PROP_REDUN_FAC) {
 		d_iov_set(&value, &val, sizeof(val));
 		rc = rdb_tx_lookup(tx, &cont->c_prop, &ds_cont_prop_redun_fac,
@@ -2460,6 +2482,7 @@ cont_query(struct rdb_tx *tx, struct ds_pool_hdl *pool_hdl, struct cont *cont,
 			case DAOS_PROP_CO_CSUM:
 			case DAOS_PROP_CO_CSUM_CHUNK_SIZE:
 			case DAOS_PROP_CO_CSUM_SERVER_VERIFY:
+			case DAOS_PROP_CO_SCRUBBER_DISABLED:
 			case DAOS_PROP_CO_REDUN_FAC:
 			case DAOS_PROP_CO_REDUN_LVL:
 			case DAOS_PROP_CO_SNAPSHOT_MAX:
@@ -2655,7 +2678,7 @@ check_set_prop_label(struct rdb_tx *tx, struct ds_pool *pool, struct cont *cont,
 		return 0;
 
 	/* Remove old label from cs_uuids KVS, if applicable */
-	d_iov_set(&key, old_lbl, strnlen(old_lbl, DAOS_PROP_LABEL_MAX_LEN + 1));
+	d_iov_set(&key, old_lbl, strnlen(old_lbl, DAOS_PROP_MAX_LABEL_BUF_LEN));
 	d_iov_set(&val, match_cuuid, sizeof(uuid_t));
 	rc = rdb_tx_lookup(tx, &cont->c_svc->cs_uuids, &key, &val);
 	if (rc != -DER_NONEXIST) {
@@ -2676,7 +2699,7 @@ check_set_prop_label(struct rdb_tx *tx, struct ds_pool *pool, struct cont *cont,
 	}
 
 	/* Insert new label into cs_uuids KVS, fail if already in use */
-	d_iov_set(&key, in_lbl, strnlen(in_lbl, DAOS_PROP_LABEL_MAX_LEN + 1));
+	d_iov_set(&key, in_lbl, strnlen(in_lbl, DAOS_PROP_MAX_LABEL_BUF_LEN));
 	d_iov_set(&val, match_cuuid, sizeof(uuid_t));
 	rc = rdb_tx_lookup(tx, &cont->c_svc->cs_uuids, &key, &val);
 	if (rc != -DER_NONEXIST) {

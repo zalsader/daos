@@ -122,7 +122,7 @@ struct cont_iv_capa {
 
 /* flattened container properties */
 struct cont_iv_prop {
-	char		cip_label[DAOS_PROP_LABEL_MAX_LEN];
+	char		cip_label[DAOS_PROP_MAX_LABEL_BUF_LEN];
 	char		cip_owner[DAOS_ACL_MAX_PRINCIPAL_BUF_LEN];
 	char		cip_owner_grp[DAOS_ACL_MAX_PRINCIPAL_BUF_LEN];
 	uint64_t	cip_layout_type;
@@ -130,6 +130,7 @@ struct cont_iv_prop {
 	uint64_t	cip_csum;
 	uint64_t	cip_csum_chunk_size;
 	uint64_t	cip_csum_server_verify;
+	uint64_t	cip_scrubbing_disabled;
 	uint64_t	cip_dedup;
 	uint64_t	cip_dedup_size;
 	uint64_t	cip_alloced_oid;

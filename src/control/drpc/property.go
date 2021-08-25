@@ -7,8 +7,16 @@ package drpc
 
 import "unsafe"
 
-// #include <daos_prop.h>
+/*
+#include <daos_prop.h>
+#include <daos_pool.h>
+*/
 import "C"
+
+const (
+	// MaxLabelLength is the maximum length of a label.
+	MaxLabelLength = C.DAOS_PROP_LABEL_MAX_LEN
+)
 
 const (
 	// PoolPropertyLabel is a string that a user can associate with a pool.
@@ -28,6 +36,12 @@ const (
 	PoolPropertyOwnerGroup = C.DAOS_PROP_PO_OWNER_GROUP
 	// PoolPropertyECCellSize is the EC Cell size.
 	PoolPropertyECCellSize = C.DAOS_PROP_PO_EC_CELL_SZ
+	// PoolPropertyScrubSched Checksum scrubbing schedule
+	PoolPropertyScrubSched = C.DAOS_PROP_PO_SCRUB_SCHED
+	// PoolPropertyScrubFreq Checksum scrubbing frequency
+	PoolPropertyScrubFreq = C.DAOS_PROP_PO_SCRUB_FREQ
+	// PoolPropertyScrubCred Checksum scrubbing credits
+	PoolPropertyScrubCred = C.DAOS_PROP_PO_SCRUB_CREDITS
 )
 
 const (
@@ -50,6 +64,13 @@ const (
 	PoolSelfHealingAutoRebuild = C.DAOS_SELF_HEAL_AUTO_REBUILD
 )
 
+const (
+	// MediaTypeScm is the media type for SCM.
+	MediaTypeScm = C.DAOS_MEDIA_SCM
+	// MediaTypeNvme is the media type for NVMe.
+	MediaTypeNvme = C.DAOS_MEDIA_NVME
+)
+
 // LabelIsValid checks a label to verify that it meets length/content
 // requirements.
 func LabelIsValid(label string) bool {
@@ -58,3 +79,11 @@ func LabelIsValid(label string) bool {
 
 	return bool(C.daos_label_is_valid(cLabel))
 }
+
+const (
+	PoolScrubSchedOff        = C.DAOS_SCRUB_SCHED_OFF
+	PoolScrubSchedWait       = C.DAOS_SCRUB_SCHED_RUN_WAIT
+	PoolScrubSchedContinuous = C.DAOS_SCRUB_SCHED_CONTINUOUS
+	PoolScrubSchedRunOnce    = C.DAOS_SCRUB_SCHED_RUN_ONCE
+	PoolScrubSchedNoYield    = C.DAOS_SCRUB_SCHED_RUN_ONCE_NO_YIELD
+)

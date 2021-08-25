@@ -928,9 +928,10 @@ vos_iter_copy(daos_handle_t ih, vos_iter_entry_t *entry,
 	      d_iov_t *iov_out);
 
 /**
- * Delete the current data entry of the iterator
+ * Process the operation for the current cursor.
  *
- * \param ih	[IN]	Iterator handle
+ * \param ih	[IN]	Iterator open handle.
+ * \param op	[IN]	op code to process. See vos_iter_proc_op
  * \param args	[IN/OUT]
  *			Optional, Provide additional hints while
  *			deletion to handle special cases.
@@ -940,10 +941,9 @@ vos_iter_copy(daos_handle_t ih, vos_iter_entry_t *entry,
  * \return		Zero on Success
  *			-DER_NONEXIST if cursor does
  *			not exist. negative value if error
- *
  */
 int
-vos_iter_delete(daos_handle_t ih, void *args);
+vos_iter_process(daos_handle_t ih, vos_iter_proc_op op, void *args);
 
 /**
  * If the iterator has any element. The condition provided to vos_iter_prepare
@@ -1026,6 +1026,10 @@ vos_iterate(vos_iter_param_t *param, vos_iter_type_t type, bool recursive,
  * \param[out]	recx	max or min offset in dkey/akey, and the size of the
  *			extent at the offset. If there are no visible array
  *			records, the size in the recx returned will be 0.
+ * \param[in]	cell_size cell size for EC object, used to calculated the replicated
+ *                      space address on parity shard.
+ * \param[in]	stripe_size stripe size for EC object, used to calculated the replicated
+ *                      space address on parity shard.
  * \param[in]	dth	Pointer to the DTX handle.
  *
  * \return
@@ -1037,7 +1041,8 @@ vos_iterate(vos_iter_param_t *param, vos_iter_type_t type, bool recursive,
 int
 vos_obj_query_key(daos_handle_t coh, daos_unit_oid_t oid, uint32_t flags,
 		  daos_epoch_t epoch, daos_key_t *dkey, daos_key_t *akey,
-		  daos_recx_t *recx, struct dtx_handle *dth);
+		  daos_recx_t *recx, unsigned int cell_size, uint64_t stripe_size,
+		  struct dtx_handle *dth);
 
 /** Return constants that can be used to estimate the metadata overhead
  *  in persistent memory on-disk format.

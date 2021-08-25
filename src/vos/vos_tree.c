@@ -516,6 +516,7 @@ svt_rec_load(struct btr_instance *tins, struct btr_record *rec,
 	rbund->rb_gsize	= irec->ir_gsize;
 	rbund->rb_ver	= irec->ir_ver;
 	rbund->rb_dtx_state = vos_dtx_ent_state(irec->ir_dtx);
+	rbund->rb_off = rec->rec_off;
 	return 0;
 }
 
@@ -718,8 +719,7 @@ svt_rec_fetch(struct btr_instance *tins, struct btr_record *rec,
 	if (key_iov != NULL)
 		key = iov2svt_key(key_iov);
 
-	svt_rec_load(tins, rec, key, rbund);
-	return 0;
+	return svt_rec_load(tins, rec, key, rbund);
 }
 
 static int
@@ -1226,6 +1226,9 @@ obj_tree_init(struct vos_object *obj)
 					    vos_cont2hdl(obj->obj_cont),
 					    vos_obj2pool(obj), &obj->obj_toh);
 	}
+
+	if (rc)
+		D_ERROR("obj_tree_init failed, "DF_RC"\n", DP_RC(rc));
 	return rc;
 }
 

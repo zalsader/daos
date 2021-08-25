@@ -178,7 +178,7 @@ dup_cont_create_props(daos_handle_t poh, daos_prop_t **prop_out,
 		uint64_t rf;
 
 		/**
-		 * If user did not provide his own root object, let's generate
+		 * If user did not provide a root object id, let's generate
 		 * it here. Worst case is that it is not used by the middleware.
 		 */
 
@@ -1205,6 +1205,9 @@ cont_query_bits(daos_prop_t *prop)
 			break;
 		case DAOS_PROP_CO_CSUM_SERVER_VERIFY:
 			bits |= DAOS_CO_QUERY_PROP_CSUM_SERVER;
+			break;
+		case DAOS_PROP_CO_SCRUBBER_DISABLED:
+			bits |= DAOS_CO_QUERY_PROP_SCRUB_DIS;
 			break;
 		case DAOS_PROP_CO_DEDUP:
 			bits |= DAOS_CO_QUERY_PROP_DEDUP;

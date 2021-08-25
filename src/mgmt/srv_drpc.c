@@ -259,7 +259,7 @@ conv_req_props(daos_prop_t **out_prop, bool set_props,
 			}
 
 			D_STRNDUP(entry->dpe_str, req_props[i]->strval,
-				DAOS_PROP_LABEL_MAX_LEN);
+				  DAOS_PROP_LABEL_MAX_LEN);
 			if (entry->dpe_str == NULL)
 				D_GOTO(out, rc = -DER_NOMEM);
 			break;
@@ -1528,6 +1528,7 @@ storage_usage_stats_from_pool_space(Mgmt__StorageUsageStats *stats,
 {
 	D_ASSERT(media_type < DAOS_MEDIA_MAX);
 
+	stats->media_type = media_type;
 	stats->total = space->ps_space.s_total[media_type];
 	stats->free = space->ps_space.s_free[media_type];
 	stats->min = space->ps_free_min[media_type];

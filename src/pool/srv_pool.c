@@ -331,6 +331,15 @@ pool_prop_default_copy(daos_prop_t *prop_def, daos_prop_t *prop)
 					return -DER_NOMEM;
 			}
 			break;
+		case DAOS_PROP_PO_SCRUB_SCHED:
+			entry_def->dpe_val = entry->dpe_val;
+			break;
+		case DAOS_PROP_PO_SCRUB_FREQ:
+			entry_def->dpe_val = entry->dpe_val;
+			break;
+		case DAOS_PROP_PO_SCRUB_CREDITS:
+			entry_def->dpe_val = entry->dpe_val;
+			break;
 		default:
 			D_ERROR("ignore bad dpt_type %d.\n", entry->dpe_type);
 			break;
@@ -414,12 +423,47 @@ pool_prop_write(struct rdb_tx *tx, const rdb_path_t *kvs, daos_prop_t *prop,
 					   &value);
 			break;
 		case DAOS_PROP_PO_EC_CELL_SZ:
+			if (entry->dpe_val < DAOS_PROP_PO_EC_CELL_SZ_MIN ||
+			    entry->dpe_val > DAOS_PROP_PO_EC_CELL_SZ_MAX) {
+				D_ERROR("DAOS_PROP_PO_EC_CELL_SZ property value"
+					" "DF_U64" should within rage of "
+					"["DF_U64", "DF_U64"].\n",
+					entry->dpe_val,
+					DAOS_PROP_PO_EC_CELL_SZ_MIN,
+					DAOS_PROP_PO_EC_CELL_SZ_MAX);
+				rc = -DER_INVAL;
+				break;
+			}
 			d_iov_set(&value, &entry->dpe_val,
 				     sizeof(entry->dpe_val));
 			rc = rdb_tx_update(tx, kvs, &ds_pool_prop_ec_cell_sz,
 					   &value);
 			break;
 		case DAOS_PROP_PO_SVC_LIST:
+			break;
+		case DAOS_PROP_PO_SCRUB_SCHED:
+			d_iov_set(&value, &entry->dpe_val,
+				  sizeof(entry->dpe_val));
+			rc = rdb_tx_update(tx, kvs, &ds_pool_prop_scrub_sched,
+					   &value);
+			if (rc)
+				return rc;
+			break;
+		case DAOS_PROP_PO_SCRUB_FREQ:
+			d_iov_set(&value, &entry->dpe_val,
+				  sizeof(entry->dpe_val));
+			rc = rdb_tx_update(tx, kvs, &ds_pool_prop_scrub_freq,
+					   &value);
+			if (rc)
+				return rc;
+			break;
+		case DAOS_PROP_PO_SCRUB_CREDITS:
+			d_iov_set(&value, &entry->dpe_val,
+				  sizeof(entry->dpe_val));
+			rc = rdb_tx_update(tx, kvs, &ds_pool_prop_scrub_cred,
+					   &value);
+			if (rc)
+				return rc;
 			break;
 		default:
 			D_ERROR("bad dpe_type %d.\n", entry->dpe_type);
@@ -586,6 +630,28 @@ select_svc_ranks(int nreplicas, const d_rank_list_t *target_addrs,
 	return 0;
 }
 
+/* TODO: replace all rsvc_complete_rpc() calls in this file with pool_rsvc_complete_rpc() */
+
+/*
+ * Returns:
+ *
+ *   RSVC_CLIENT_RECHOOSE	Instructs caller to retry RPC starting from rsvc_client_choose()
+ *   RSVC_CLIENT_PROCEED	OK; proceed to process the reply
+ */
+static int
+pool_rsvc_client_complete_rpc(struct rsvc_client *client, const crt_endpoint_t *ep,
+			      int rc_crt, struct pool_op_out *out)
+{
+	int rc;
+
+	rc = rsvc_client_complete_rpc(client, ep, rc_crt, out->po_rc, &out->po_hint);
+	if (rc == RSVC_CLIENT_RECHOOSE ||
+	    (rc == RSVC_CLIENT_PROCEED && daos_rpc_retryable_rc(out->po_rc))) {
+		return RSVC_CLIENT_RECHOOSE;
+	}
+	return RSVC_CLIENT_PROCEED;
+}
+
 /**
  * Create a (combined) pool(/container) service. This method shall be called on
  * a single storage node in the pool. "target_uuids" shall be an array of the
@@ -679,7 +745,8 @@ rechoose:
 	rc = rsvc_client_complete_rpc(&client, &ep, rc,
 				      rc == 0 ? out->pro_op.po_rc : -DER_IO,
 				      rc == 0 ? &out->pro_op.po_hint : NULL);
-	if (rc == RSVC_CLIENT_RECHOOSE) {
+	if (rc == RSVC_CLIENT_RECHOOSE ||
+	    (rc == RSVC_CLIENT_PROCEED && daos_rpc_retryable_rc(out->pro_op.po_rc))) {
 		crt_req_decref(rpc);
 		dss_sleep(d_backoff_seq_next(&backoff_seq));
 		D_GOTO(rechoose, rc);
@@ -1630,6 +1697,13 @@ pool_prop_read(struct rdb_tx *tx, const struct pool_svc *svc, uint64_t bits,
 		nr++;
 	if (bits & DAOS_PO_QUERY_PROP_EC_CELL_SZ)
 		nr++;
+	if (bits & DAOS_PO_QUERY_PROP_SCRUB_SCHED)
+		nr++;
+	if (bits & DAOS_PO_QUERY_PROP_SCRUB_FREQ)
+		nr++;
+	if (bits & DAOS_PO_QUERY_PROP_SCRUB_CRED)
+		nr++;
+
 	if (nr == 0)
 		return 0;
 
@@ -1765,6 +1839,39 @@ pool_prop_read(struct rdb_tx *tx, const struct pool_svc *svc, uint64_t bits,
 		}
 		prop->dpp_entries[idx].dpe_type = DAOS_PROP_PO_SVC_LIST;
 		prop->dpp_entries[idx].dpe_val_ptr = svc_list;
+		idx++;
+	}
+	if (bits & DAOS_PO_QUERY_PROP_SCRUB_SCHED) {
+		d_iov_set(&value, &val, sizeof(val));
+		rc = rdb_tx_lookup(tx, &svc->ps_root, &ds_pool_prop_scrub_sched,
+				   &value);
+		if (rc != 0)
+			return rc;
+		D_ASSERT(idx < nr);
+		prop->dpp_entries[idx].dpe_type = DAOS_PROP_PO_SCRUB_SCHED;
+		prop->dpp_entries[idx].dpe_val = val;
+		idx++;
+	}
+	if (bits & DAOS_PO_QUERY_PROP_SCRUB_FREQ) {
+		d_iov_set(&value, &val, sizeof(val));
+		rc = rdb_tx_lookup(tx, &svc->ps_root, &ds_pool_prop_scrub_freq,
+				   &value);
+		if (rc != 0)
+			return rc;
+		D_ASSERT(idx < nr);
+		prop->dpp_entries[idx].dpe_type = DAOS_PROP_PO_SCRUB_FREQ;
+		prop->dpp_entries[idx].dpe_val = val;
+		idx++;
+	}
+	if (bits & DAOS_PO_QUERY_PROP_SCRUB_CRED) {
+		d_iov_set(&value, &val, sizeof(val));
+		rc = rdb_tx_lookup(tx, &svc->ps_root, &ds_pool_prop_scrub_cred,
+				   &value);
+		if (rc != 0)
+			return rc;
+		D_ASSERT(idx < nr);
+		prop->dpp_entries[idx].dpe_type = DAOS_PROP_PO_SCRUB_CREDITS;
+		prop->dpp_entries[idx].dpe_val = val;
 		idx++;
 	}
 
@@ -2532,9 +2639,7 @@ realloc_resp:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->plco_op.po_rc,
-				      &out->plco_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->plco_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		/* To simplify logic, destroy bulk hdl and buffer each time */
 		list_cont_bulk_destroy(in->plci_cont_bulk);
@@ -2777,6 +2882,9 @@ ds_pool_query_handler(crt_rpc_t *rpc)
 			case DAOS_PROP_PO_SELF_HEAL:
 			case DAOS_PROP_PO_RECLAIM:
 			case DAOS_PROP_PO_EC_CELL_SZ:
+			case DAOS_PROP_PO_SCRUB_SCHED:
+			case DAOS_PROP_PO_SCRUB_FREQ:
+			case DAOS_PROP_PO_SCRUB_CREDITS:
 				if (entry->dpe_val != iv_entry->dpe_val) {
 					D_ERROR("type %d mismatch "DF_U64" - "
 						DF_U64".\n", entry->dpe_type,
@@ -3073,9 +3181,7 @@ realloc:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->pqo_op.po_rc,
-				      &out->pqo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->pqo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		map_bulk_destroy(in->pqi_map_bulk, map_buf);
 		crt_req_decref(rpc);
@@ -3217,9 +3323,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->pgo_op.po_rc,
-				      &out->pgo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->pgo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -3286,8 +3390,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-		out->peo_op.po_rc, &out->peo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->peo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -3378,8 +3481,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-		out->pto_op.po_rc, &out->pto_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->pto_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -3536,9 +3638,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->pso_op.po_rc,
-				      &out->pso_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->pso_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -3710,9 +3810,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->puo_op.po_rc,
-				      &out->puo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->puo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -3876,9 +3974,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->pdo_op.po_rc,
-				      &out->pdo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->pdo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -4938,7 +5034,7 @@ out:
 
 /**
  * Send a CaRT message to the pool svc to test and
- * (if applicable based on destoy and force option) evict all open handles
+ * (if applicable based on destroy and force option) evict all open handles
  * on a pool.
  *
  * \param[in]	pool_uuid	UUID of the pool
@@ -5006,9 +5102,7 @@ rechoose:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->pvo_op.po_rc,
-				      &out->pvo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->pvo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		crt_req_decref(rpc);
 		dss_sleep(1000 /* ms */);
@@ -5194,9 +5288,7 @@ realloc_resp:
 	out = crt_reply_get(rpc);
 	D_ASSERT(out != NULL);
 
-	rc = rsvc_client_complete_rpc(&client, &ep, rc,
-				      out->prgo_op.po_rc,
-				      &out->prgo_op.po_hint);
+	rc = pool_rsvc_client_complete_rpc(&client, &ep, rc, &out->prgo_op);
 	if (rc == RSVC_CLIENT_RECHOOSE) {
 		/* To simplify logic, destroy bulk hdl and buffer each time */
 		ranks_get_bulk_destroy(in->prgi_ranks_bulk);

@@ -650,6 +650,8 @@ enum {
 	EVT_ITER_FOR_PURGE	= (1 << 5),
 	/** The iterator is for data migration scan */
 	EVT_ITER_FOR_MIGRATION	= (1 << 6),
+	/** Skip visible data (Only valid with EVT_ITER_VISIBLE) */
+	EVT_ITER_SKIP_DATA	= (1 << 7),
 };
 
 D_CASSERT((int)EVT_VISIBLE == (int)EVT_ITER_VISIBLE);
@@ -731,6 +733,13 @@ int evt_iter_empty(daos_handle_t ih);
  * \param ent		[OUT]	If not NULL, returns the cached entry.
  */
 int evt_iter_delete(daos_handle_t ih, struct evt_entry *ent);
+
+/**
+ * Mark the record at the current cursor as being corrupt.
+ *
+ * \param ih		[IN]	Iterator open handle.
+ */
+int evt_iter_corrupt(daos_handle_t ih);
 
 /**
  * Fetch the extent and its data address from the current iterator position.
