@@ -172,7 +172,7 @@ test_cond_helper(test_arg_t *arg, int rf)
 
 	rc = dfs_umount(dfs);
 	assert_int_equal(rc, 0);
-	rc = daos_cont_close(coh, NULL);
+	rc = dfs_cont_close(coh, NULL);
 	assert_rc_equal(rc, 0);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -180,10 +180,9 @@ test_cond_helper(test_arg_t *arg, int rf)
 		char	str[37];
 
 		uuid_unparse(cuuid, str);
-		rc = daos_cont_destroy(arg->pool.poh, str, 1, NULL);
+		rc = dfs_cont_destroy(arg->pool.poh, str, 0, NULL);
 		assert_rc_equal(rc, 0);
-		printf("Destroyed DFS Container "DF_UUIDF"\n",
-		       DP_UUID(cuuid));
+		printf("Destroyed DFS Container "DF_UUIDF"\n", DP_UUID(cuuid));
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -666,8 +665,7 @@ dfs_test_cont_atomic(void **state)
 	if (arg->myrank == 0)
 		print_message("one rank Created POSIX Container dfs_par_test_cont\n");
 
-	rc = daos_cont_open(arg->pool.poh, "dfs_par_test_cont", DAOS_COO_RW,
-			    &coh, &co_info, NULL);
+	rc = dfs_cont_open(arg->pool.poh, "dfs_par_test_cont", DAOS_COO_RW, &coh, &co_info, NULL);
 	assert_int_equal(rc, 0);
 
 	rc = dfs_mount(arg->pool.poh, coh, O_RDWR, &dfs);
@@ -675,12 +673,12 @@ dfs_test_cont_atomic(void **state)
 
 	rc = dfs_umount(dfs);
 	assert_int_equal(rc, 0);
-	rc = daos_cont_close(coh, NULL);
+	rc = dfs_cont_close(coh, NULL);
 	assert_int_equal(rc, 0);
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (arg->myrank == 0) {
-		rc = daos_cont_destroy(arg->pool.poh, "dfs_par_test_cont", 1, NULL);
+		rc = dfs_cont_destroy(arg->pool.poh, "dfs_par_test_cont", 0, NULL);
 		assert_int_equal(rc, 0);
 		print_message("Destroyed POSIX Container dfs_par_test_cont\n");
 	}
@@ -811,7 +809,7 @@ file_atomicity_test_helper(test_arg_t *arg, int rf)
 
 	rc = dfs_umount(dfs);
 	assert_int_equal(rc, 0);
-	rc = daos_cont_close(coh, NULL);
+	rc = dfs_cont_close(coh, NULL);
 	assert_rc_equal(rc, 0);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -819,10 +817,9 @@ file_atomicity_test_helper(test_arg_t *arg, int rf)
 		char str[37];
 
 		uuid_unparse(cuuid, str);
-		rc = daos_cont_destroy(arg->pool.poh, str, 1, NULL);
+		rc = dfs_cont_destroy(arg->pool.poh, str, 0, NULL);
 		assert_rc_equal(rc, 0);
-		printf("Destroyed DFS Container "DF_UUIDF"\n",
-		       DP_UUID(cuuid));
+		printf("Destroyed DFS Container "DF_UUIDF"\n", DP_UUID(cuuid));
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -899,7 +896,7 @@ dfs_teardown(void **state)
 
 	rc = dfs_umount(dfs_mt);
 	assert_int_equal(rc, 0);
-	rc = daos_cont_close(co_hdl, NULL);
+	rc = dfs_cont_close(co_hdl, NULL);
 	assert_rc_equal(rc, 0);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -907,10 +904,9 @@ dfs_teardown(void **state)
 		char	str[37];
 
 		uuid_unparse(co_uuid, str);
-		rc = daos_cont_destroy(arg->pool.poh, str, 1, NULL);
+		rc = dfs_cont_destroy(arg->pool.poh, str, 0, NULL);
 		assert_rc_equal(rc, 0);
-		printf("Destroyed DFS Container "DF_UUIDF"\n",
-		       DP_UUID(co_uuid));
+		printf("Destroyed DFS Container "DF_UUIDF"\n", DP_UUID(co_uuid));
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 
