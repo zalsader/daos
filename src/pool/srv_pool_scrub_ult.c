@@ -30,6 +30,14 @@ scrubbing_is_enabled()
 	return disabled == NULL;
 }
 
+static inline bool
+evict_threshold()
+{
+	char *thresh_str = getenv("DAOS_CSUM_SCRUB_EVICT_THRESH");
+
+	return thresh_str != NULL ? atoll(thresh_str) : 0;
+}
+
 static inline int
 yield_fn(void *arg)
 {
@@ -141,6 +149,21 @@ sc_add_pool_metrics(struct scrub_ctx *ctx)
 			DP_POOL_DIR(ctx));
 }
 
+
+static int
+drain_pool_tgt_cb(uuid_t pool_uuid, d_rank_list_t *ranks,
+		  struct pool_target_addr_list *target_list)
+{
+	return ds_pool_target_update_state(pool_uuid, ranks,
+				    target_list, PO_COMP_ST_DRAIN);
+}
+
+static int
+get_crt_group_rank(d_rank_t *rank)
+{
+	return crt_group_rank(NULL, rank);
+}
+
 /** Setup scrubbing context and start scrubbing the pool */
 static void
 scrubbing_ult(void *arg)
@@ -172,6 +195,9 @@ scrubbing_ult(void *arg)
 	ctx.sc_status = SCRUB_STATUS_NOT_RUNNING;
 	ctx.sc_credits_left = ctx.sc_pool->sp_scrub_cred;
 	ctx.sc_dmi =  dss_get_module_info();
+	ctx.sc_drain_pool_tgt_fn = drain_pool_tgt_cb;
+	ctx.sc_get_rank_fn = get_crt_group_rank;
+	ctx.sc_pool_evict_threshold = 3;
 
 	sc_add_pool_metrics(&ctx);
 	while (!dss_ult_exiting(child->spc_scrubbing_req)) {

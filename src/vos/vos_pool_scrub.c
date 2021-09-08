@@ -355,6 +355,46 @@ sc_mark_corrupt(struct scrub_ctx *ctx)
 }
 
 static int
+sc_pool_drain(struct scrub_ctx *ctx)
+{
+	struct pool_target_addr_list	target_list = {0};
+	struct pool_target_addr		addr = {0};
+	d_rank_list_t			ranks;
+	d_rank_t			rank;
+	int				rc;
+
+	D_ASSERT(ctx->sc_get_rank_fn);
+	rc = ctx->sc_get_rank_fn(&rank);
+	if (rc != 0) {
+		D_ERROR("Unable to get rank: "DF_RC"\n", DP_RC(rc));
+		return rc;
+	}
+	D_INFO("Draining target. rank: %d, target: %d", rank,
+	       ctx->sc_dmi->dmi_tgt_id);
+
+	ranks.rl_ranks = &rank;
+	ranks.rl_nr = 1;
+
+	addr.pta_rank = rank;
+	addr.pta_target = ctx->sc_dmi->dmi_tgt_id;
+	target_list.pta_addrs = &addr;
+
+	target_list.pta_number = 1;
+
+	D_ASSERT(ctx->sc_drain_pool_tgt_fn);
+	return ctx->sc_drain_pool_tgt_fn(ctx->sc_pool_uuid, &ranks,
+					 &target_list);
+}
+
+static bool
+sc_should_evict(struct scrub_ctx *ctx)
+{
+	return ctx->sc_pool_evict_threshold > 0 && /* threshold set */
+	       ctx->sc_pool_tgt_corrupted_detected >= /* hit or exceeded */
+	       ctx->sc_pool_evict_threshold;
+}
+
+static int
 sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 		    daos_handle_t ih)
 {
@@ -402,10 +442,18 @@ sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 	     sc_verify_sv(ctx, &data);
 
 	if (rc == -DER_CSUM) {
-		D_WARN("Checksum scrubber found corruption");
 		sc_raise_ras(ctx);
 		sc_m_pool_corr_inc(ctx);
 		rc = sc_mark_corrupt(ctx);
+		ctx->sc_pool_tgt_corrupted_detected++;
+		D_ERROR("Checksum scrubber found corruption. %d so far.\n",
+			ctx->sc_pool_tgt_corrupted_detected);
+		if (sc_should_evict(ctx)) {
+			D_ERROR("Corruption threshold reached.");
+			rc = sc_pool_drain(ctx);
+			if (rc != 0)
+				D_ERROR("Error "DF_RC"\n", DP_RC(rc));
+		}
 	}
 
 out:

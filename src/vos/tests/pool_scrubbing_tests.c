@@ -105,6 +105,7 @@ setup_iod_type(daos_iod_t *iod, int iod_type, daos_size_t data_len,
 
 /** scrubbing test context */
 struct sts_context {
+	struct scrub_ctx	 tsc_scrub_ctx;
 	char			 tsc_pmem_file[256];
 	struct ds_pool		 tsc_pool;
 	struct dss_module_info	 tsc_dmi;
@@ -117,10 +118,11 @@ struct sts_context {
 	daos_handle_t		 tsc_poh;
 	daos_handle_t		 tsc_coh;
 	struct daos_csummer	*tsc_csummer;
-	int			 tsc_fd;
 	sc_get_cont_fn_t	 tsc_get_cont_fn;
 	sc_yield_fn_t		 tsc_yield_fn;
 	void			*tsc_sched_arg;
+	int			 tsc_fd;
+	uint32_t		 tsc_pool_evict_threshold;
 };
 
 static void
@@ -356,6 +358,23 @@ sts_ctx_update(struct sts_context *ctx, int oid_lo, int iod_type,
 	D_FREE(iod.iod_name.iov_buf);
 }
 
+int fake_target_drain_call_count;
+static int
+fake_target_drain(uuid_t pool_uuid, d_rank_list_t *ranks,
+		  struct pool_target_addr_list *target_addrs)
+{
+	fake_target_drain_call_count++;
+	return 0;
+}
+
+static int
+fake_get_rank(d_rank_t *rank)
+{
+	D_ASSERT(rank != NULL);
+	*rank = 1;
+	return 0;
+}
+
 static void
 sts_ctx_punch_dkey(struct sts_context *ctx, int oid_lo, const char *dkey_str,
 		   int epoch)
@@ -385,9 +404,13 @@ sts_ctx_do_scrub(struct sts_context *ctx)
 	s_ctx.sc_yield_fn = ctx->tsc_yield_fn;
 	s_ctx.sc_sched_arg = ctx->tsc_sched_arg;
 	s_ctx.sc_cont_lookup_fn = ctx->tsc_get_cont_fn;
+	ctx->tsc_scrub_ctx.sc_drain_pool_tgt_fn = fake_target_drain;
+	ctx->tsc_scrub_ctx.sc_get_rank_fn = fake_get_rank;
 	s_ctx.sc_pool = &ctx->tsc_pool;
 	s_ctx.sc_dmi = &ctx->tsc_dmi;
 	s_ctx.sc_credits_left = 1;
+	ctx->tsc_scrub_ctx.sc_pool_evict_threshold =
+		ctx->tsc_pool_evict_threshold;
 
 	assert_success(vos_scrub_pool(&s_ctx));
 }
@@ -719,6 +742,50 @@ multiple_objects(void **state)
 }
 
 static void
+drain_target(void **state)
+{
+	struct sts_context *ctx = *state;
+
+	ctx->tsc_pool_evict_threshold = 4;
+
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey1", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey2", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey3", 1, true);
+
+	sts_ctx_do_scrub(ctx);
+
+	assert_int_equal(0, fake_target_drain_call_count);
+
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey4", 1, true);
+	sts_ctx_do_scrub(ctx);
+	assert_int_equal(1, fake_target_drain_call_count);
+
+}
+
+static void
+no_drain_target(void **state)
+{
+	struct sts_context *ctx = *state;
+
+	ctx->tsc_pool_evict_threshold = 0;
+
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey0", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey1", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey2", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey3", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey4", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey5", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey6", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey7", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey8", 1, true);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey9", 1, true);
+
+	sts_ctx_do_scrub(ctx);
+
+	assert_int_equal(0, fake_target_drain_call_count);
+}
+
+static void
 multiple_overlapping_extents(void **state)
 {
 	struct sts_context *ctx = *state;
@@ -756,6 +823,7 @@ sts_setup(void **state)
 	ctx->tsc_pool.sp_scrub_sched = DAOS_SCRUB_SCHED_RUN_WAIT;
 	ctx->tsc_pool.sp_scrub_freq_sec = 1;
 	ctx->tsc_pool.sp_scrub_cred = 1;
+	fake_target_drain_call_count = 0;
 
 	return 0;
 }
@@ -804,8 +872,12 @@ static const struct CMUnitTest scrubbing_tests[] = {
 	   container_deleted),
 	TS("CSUM_SCRUBBING_10: Scrubbing multiple objects",
 	   multiple_objects),
-	TS("CSUM_SCRUBBING_11: Scrubbing multiple overlapping extents",
+	TS("CSUM_SCRUBBING_11: When threshold is 0, no drain happens",
+	   no_drain_target),
+	TS("CSUM_SCRUBBING_12: Scrubbing multiple overlapping extents",
 	   multiple_overlapping_extents),
+	TS("CSUM_SCRUBBING_13: Evict pool target when threshold is exceeded",
+	   drain_target),
 };
 
 extern int run_scrubbing_sched_tests(void);

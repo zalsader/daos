@@ -1186,6 +1186,9 @@ typedef bool(*sc_cont_is_stopping_fn_t)(void *cont);
 
 typedef int (*sc_sleep_fn_t)(void *, uint32_t msec);
 typedef int (*sc_yield_fn_t)(void *);
+typedef int (*ds_pool_tgt_drain)(uuid_t pool_uuid, d_rank_list_t *ranks,
+				 struct pool_target_addr_list *target_list);
+typedef int (*ds_get_rank)(d_rank_t *rank);
 
 enum scrub_status {
 	SCRUB_STATUS_UNKNOWN = 0,
@@ -1235,6 +1238,7 @@ struct scrub_ctx {
 	struct scrub_ctx_metrics sc_metrics;
 
 	struct dss_module_info	*sc_dmi;
+	ds_get_rank		 sc_get_rank_fn;
 
 	/**
 	 * Pool
@@ -1245,6 +1249,9 @@ struct scrub_ctx {
 	struct timespec		 sc_pool_start_scrub;
 	int			 sc_pool_last_csum_calcs;
 	int			 sc_pool_csum_calcs;
+	uint32_t		 sc_pool_tgt_corrupted_detected;
+	ds_pool_tgt_drain	 sc_drain_pool_tgt_fn;
+	uint32_t		 sc_pool_evict_threshold;
 
 	/**
 	 * Container
