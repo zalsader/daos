@@ -150,7 +150,9 @@ Unit and functional testing is performed at many layers.
 ./srv_checksum_tests
 ./pool_scrubbing_tests
 ```
+
 **With daos_server running**
+
 ```
 export DAOS_CSUM_TEST_ALL_TYPE=1
 ./daos_server -z
@@ -159,175 +161,153 @@ export DAOS_CSUM_TEST_ALL_TYPE=1
 
 ---
 
-# Checksum Scrubbing (In Development)
-A background task will scan (when the storage server is idle to limit
-performance impact) the Version Object Store (VOS) trees to verify the data
-integrity with the checksums. Corrective actions can be taken when corruption is
-detected. See [Corrective Actions](#corrective-actions)
+# Checksum Scrubbing
 
-## (Not Implemented) Scanner
-### Goals/Requirements
-- **Detect Silent Data Corruption Proactively** - The whole point of the
-  scrubber is to detect silent data corruption before it is fetched.
-- **Minimize CPU and I/O Bandwidth** - Checksum scrubbing scanner will impact
-  CPU and the I/O bandwidth because it must iterate the VOS tree (I/O to SCM)
-  fetch data (I/O to SSD) and calculate checksums (CPU intensive). To minimize
-  both of these impacts, the server scheduler must be able to throttled the
-  scrubber's I/O and CPU usage.
-- **Continuous** - The background task will be a continuous processes instead of
-  running on a schedule. Once complete immediately start over. Throttling
-  approaches should prevent from scrubbing same objects too frequently.
+The Checksum Scrubber proactively detects silent data corruption by verifying
+the checksums that are stored on the server. For each pool target a ULT is
+created that will scan the pool target VOS tree. For every value, the data is
+read, a new checksum is calculated and compared to the stored checksum when the
+data was first written. A match indicates that data corruption has not been
+detected.
 
-### High Level Design
-- Per Pool ULT (I/O xstream) that will iterate containers. If checksums and
-  scrubber is enabled then iterate the object tree. If a record value (SV or
-  array) is not marked corrupted then scan.
-  - Fetch the data.
-  - Create new ULTs (helper xstream) to calculate checksum for data
-  - Compare calculated checksum with stored checksum.
-  - After every checksum is calculated, determine if need to
-    [sleep or yield](#sleep-or-yield).
-  - If checksums don't match confirm record is still there (not deleted by
-    aggregation) then update record as corrupted
-- After each object scanned yield to allow the server scheduler to reschedule
-  the next appropriate I/O.
+There are three pool properties that alter the Checksum Scrubber behavior.
 
-#### Sleep or Yield
-Sleep for sufficient amount of time to ensure that scanning completes no sooner
-than configured interval (i.e. once a week or month). For example, if the
-interval is 1 week and there are 70 checksums that need to be calculated, then
-at a maximum 10 checksums are calculated a day, spaced roughly every 2.4 hours.
-If it doesn't need to sleep, then it will yield to allow the server scheduler to
-prioritize other jobs.
+- **Scrubbing Mode** - Off, continuous or run & wait. (default: continuous)
+- **Frequency** - How often the scrubber should run defined in seconds (default:
+  7 days)
+- **Credits** - How aggressive the scrubber is. A higher value means that the
+  scrubber will yield less frequently. (default: 1)
 
-## Corrective Actions
-There are two main options for corrective actions when data corruption is
-discovered, in place data repair and SSD eviction.
+## Scrubbing Mode
 
-### In Place Data Repair
-If enabled, when corruption is detected, the value identifier (dkey, akey, recx)
-will be placed in a queue. When there are available cycles, the value identifier
-will be used to request the data from a replica if exists and rewrite the data
-locally. This will continue until the SSD Eviction threshold is reached, in
-which case, the SSD is assumed to be bad enough that it isn't worth fixing
-locally and it will be requested to be evicted.
+The Checksum Scrubber has three modes.
 
-### SSD Eviction
-If enabled, when the SSD Eviction Threshold is reached the SSD will be evicted.
-Current eviction methods are pool and target based so there will need to be a
-mapping and mechanism in place to evict an SSD. When an SSD is evicted, the
-rebuild protocol will be invoked.
+- **OFF** - No scrubbing occurs.
+- **Continuous** - Space out checksum calculations so scrubbing is a continuous
+  process and takes the whole frequency time.
+- **Run & Wait** - Will run the scrubber to completion, then wait until it is
+  time to run the scrubber again.
 
-Also, once the SSD Eviction Threshold is reached, the scanner should quit
-scanning anything on that SSD.
+### Continuous
 
-## Additional Checksum Properties
-### Pool Properties (-> doc/admin/pool_operations.md, src/control/lib/control/pool_property.go)
-These properties are provided when a pool is created, but should
-also be able to update them. When updated, they should be active right away.
+In the continuous mode the checksum calculations are spaced out so that any
+performance impact would be consistent. To calculate the spacing, understanding
+how many checksums will be calculated is needed. Because this can be very
+dynamic and constantly changing, the scrubber remembers the number of checksums
+calculated from the previous scrub. This value becomes the expected checksums to
+be calculated and determines the expected necessary spacing. If the actual
+checksums calculated is higher than the expected calculations then the scrubber
+might not be able to hit the frequency exactly. The scrubber may exceed the
+expected time, but it should not run faster than the duration the frequency
+determines.
 
-- **Pool Scrubber Mode** - How the scrubber will run for each pool target. The
-  container configuration can disable scrubbing for the container, but it cannot
-  alter the mode.
-    - **OFF** - The Scrubber will not run.
-    - **Run & Wait** - Will run the scrubber to completion, yielding after
-      consuming configured "credits". Then, if completed before configured
-      frequency, will sleep until it's time to start again.
-    - **Continuous** - Will run the scanner, sleeping in between object scrubs so
-      that the duration of the scrubber takes whole frequency time and will
-      start again as soon as it completes. Knowing how many objects are in the
-      system is required for this approach to work. The scrubber will use the
-      previous scrubber count of objects as best guess for current.
-    - **Run Once** - Run the scrubber once then turn off. Useful for better
-      control by external scripts to control the schedule. Will still yield after
-      consuming "credits".
-- **Pool Scrubber Frequency** - How frequently the scrubber should run in
-  number of seconds. If a scan takes longer than frequency, it would start
-  again as soon as the previous scan completes.
-- **Pool Credits** - Number of credits consumed before the scrubber yields. Each
-  time a checksum is calculated to verify object data, a credit is consumed.
-- **In Place Correction** - If the number checksum errors is below the Eviction
-  Threshold, DAOS will attempt to repair the corrupted data using replicas if
-  they exist.
+### Run & Wait
 
-The command to create a pool with scrubbing enabled might look like this:
+In the Run & Wait mode, the scrubber simply runs to completion and then waits
+until it is time to run again based on the frequency. Based on the credits
+defined, it will still yield between checksum calculations, but it will not
+sleep like the continuous mode.
+
+The following diagram illustrates the difference between the two different
+modes.
+
+![Scrubbing Modes](../graph/data_integrity/scrubber-modes.svg)
+
+## Server Configuration
+
+There is 1 configuration that can be set in the daos_server.yml file, set as an
+environment variable.
+
+- **DAOS_CSUM_SCRUB_EVICT_THRESH** - Number of distinct silent data corruption
+  events. When a target hits the threshold, the pool target will be evicted. To
+  evict the pool target, a Pool Target Drain is triggered which will use the
+  pool target in the rebuild process. Any corrupted data that has data
+  protection enabled should be recovered on the newly rebuilt pool target.
+  Corrupt data that does not have data protection is lost.
+
+  A value of 0 turns off Auto Eviction. (default: 10)
+
+## Telemetry Metrics
+
+To see the progress of the scrubber, several telemetry metrics are tracked for
+each pool target.
+
+- ult_start: birth-date/time of the ULT
+- last_duration: How long the previous scrub took.
+- wait_gauge: Spacing between checksum calculations for the continuous mode
+- csums/current: Number of checksums calculated in the current scrubbing
+- csums/prev: Number of checksums calculated in the previous scrubbing. This
+  value is used as the expected number of checksum calculations for the current
+  scrub.
+- csums/total: Total number of checksums calculated over the life of the
+  Scrubbing ULT
+- corruption/current: Number of checksums that did not match the stored
+  checksum, therefore discovering data corruption, in the current scrub.
+- corruption/total: Total number of checksums that did not match the stored
+  checksum.
+
+## Data Corruption Discovery
+
+If data corruption is discovered by the scrubber it will:
+
+- mark the record's BIO address with the corrupt flag,
+- raise a RAS event (```ds_notify_ras_event()```),
+- increment the corruption counter telemetry metric,
+- initiate Drain on the pool target, if the Eviction Threshold is reached
+
+## Configuring a Pool's Checksum Scrubbing Properties
+
+Command to create a pool with scrubbing enabled might look like:
+
 ```bash
-dmg pool create --scm-size 1G --properties=scrub:continuous,scrub-freq:1,scrub-cred:10
-# or
-dmg pool create --scm-size 1G
-dmg pool set-prop ${POOL} --properties=scrub:run_wait
+dmg pool create --scm-size 1G --properties=scrub:continuous,scrub-freq:604800,scrub-cred:1
 ```
 
-### Container Properties (-> doc/user/container.md)
-- **Container Disable Scrubbing** - If scrubbing is enabled for a pool, a
-  container can disable it for itself.
+The pool properties can also be changed after a pool is created:
 
-### Server Config (-> utils/config/daos_server.yml)
-- **Engine SSD Eviction Threshold** - number of distinct silent data corruption
-  events. When a target hits the threshold its corresponding NVMe storage device
-  will be evicted. (Note this is not a pool or container property. It will be
-  configured in the server.yaml configuration file. If this value is 0, then SSD
-  Auto Eviction will not occur. - Default: 10
-
-## Telemetry
-The following telemetry metrics are gathered and can be reported for better
-understanding of how the scrubber is running. They will be gathered at both the
-pool and container level, with the exception of the Scrubber ULT Start.
-### Schedule
-- Scrubber ULT Start - datetime the scrubber service started
-- Scrubber Current Start - datetime the current scrubbing job started
-- Last Duration - how long the last scrubber took to run to completion.
-### Checksum Calculated Counts
-- Total Checksum Count - Total number of checksums calculated over the life
-  of the scrubber.
-- Last Checksum Count - number of checksums calculated during last scrubber job
-- Current Checksum Count - number of checksums calculated so far for the
-  current scrubber job
-### Silent Data Corruption Counts
-- Total Silent Data Corruption - Total number of silent data corruption
-  found while scrubbing object values.
-- Current Silent Data Corruption - number of silent data corruption found so far
-  for the current scrubber job
-
-
-## Design Details & Implementation
-
-### Pool ULT
-The code for the pool ULT is found in `srv_pool_scrub.c`. It can be a bit
-difficult to follow because there are several layers of callback functions due
-to the nature of how ULTs and the vos_iterator work, but the file is organized
-such that functions typically call the function above it (either directly or
-indirectly as a callback). For example (~> is an indirect call, -> is a direct
-call):
-
-```
-ds_start_scrubbing_ult ~> scrubbing_ult -> scrub_pool ~> cont_iter_scrub_cb ->
-    scrub_cont ~> obj_iter_scrub_cb ...
+```bash
+dmg pool set-prop ${POOL} --properties=scrub:off
 ```
 
-### VOS Layer
-- In order to mark data as corrupted a flag field is added to bio_addr_t which
-  includes a CORRUPTED bit.
-- The vos update api already accepts a flag, so a CORRUPTED flag is added and
-  handled during an update so that, if set, the bio address will be updated to
-  be corrupted. (Documented in src/vos/README.md)
-- On fetch, if a value is already marked corrupted, return -DER_CSUM
+## Performance Impact
 
-### Object Layer
-- When corruption is detected on the server during a fetch, aggregation, or
-  rebuild the server calls VOS to update value as corrupted.
-- (TBD) Add Server Side Verifying on fetch so can know if media or network
-  corruption (note: need something so extents aren't double verified?)
+Checksum scrubbing scanner can impact CPU and the I/O bandwidth because it must
+iterate the VOS tree (I/O to SCM), fetch data (I/O to SSD) and calculate
+checksums (CPU intensive). To minimize these impacts, the Checksum Scrubber
+either yields or sleeps very frequently (after every checksum calculation if
+credits remains 1) allowing the server scheduler to prioritize I/O. This can 
+lead to the scrubber being starved, in which case the user can increase the 
+aggressiveness of the scrubber by modifying the credits.
 
-## Testing
-- pool_scrubbing_tests
-- Add scrubbing status to daos_pool_info_t so it can be queried
+## Design Overview
 
+![Scrubber Architecture](../graph/data_integrity/scrubber-architecture.svg)
 
-## Debugging
-- In the server.yml configuration file set the following env_vars
-```
-- D_LOG_MASK=DEBUG
-- DD_SUBSYS=pool
-- DD_MASK=csum
-```
+When a ```ds_pool_child (per target/thread pool object)``` is created, a new ULT
+starts and defines a scrubbing context (```scrub_ctx```). Several callbacks are
+added to the context to keep server dependencies out of the scrubber.
+
+The server scheduling callbacks allow the pool scrubber to yield or sleep
+depending on the scrubbing mode, frequency, and credits while removing the
+dependency on the actual yielding and sleeping mechanisms. This makes unit
+testing the scrubber's behavior easier at a unit level.
+
+The container lookup callbacks also enable the pool scrubber to get the server
+in memory container object. This provides the container's csummer and allows the
+scrubber to check if the container is being destroyed and can stop any scrubbing
+of the container.
+
+The drain callbacks provide the scrubber to initiate a pool target drain 
+when the threshold is reached. Again, this enables  testing the pool 
+scrubber behavior without having to actually drain targets.
+
+The Pool Scrubber has direct access to the Telemetry Framework. 
+
+The ```vos_iterate``` VOS API is used to iterate over all the containers,
+objects, dkeys, akeys, and records within a pool target. A callback is passed
+to ```vos_iterate``` which does the actual scrubbing. When iterating over
+records, the bio address stored in the record is used to read the data. A new
+checksum is calculated for the data and it is compared to the checksum stored in
+the record. A flag in the bio address can be set if data corruption is detected
+for the record. This prevents future scanning of the record and the need to
+calculate checksums if the record is read using the daos_obj_fetch API.
