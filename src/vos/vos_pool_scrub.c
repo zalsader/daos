@@ -14,6 +14,7 @@
 
 #define SCRUB_POOL_OFF 1
 #define SCRUB_CONT_STOPPING 2
+#define SCRUB_POOL_TGT_DRAIN 3
 
 static inline void
 sc_csum_calc_inc(struct scrub_ctx *ctx)
@@ -364,6 +365,8 @@ sc_pool_drain(struct scrub_ctx *ctx)
 	int				rc;
 
 	D_ASSERT(ctx->sc_get_rank_fn);
+	D_ASSERT(ctx->sc_drain_pool_tgt_fn);
+
 	rc = ctx->sc_get_rank_fn(&rank);
 	if (rc != 0) {
 		D_ERROR("Unable to get rank: "DF_RC"\n", DP_RC(rc));
@@ -433,7 +436,8 @@ sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 		/* Already know this is corrupt so just return */
 		D_GOTO(out, rc = DER_SUCCESS);
 	} else if (rc != 0) {
-		D_WARN("Unable to fetch data for scrubber");
+		D_WARN("Unable to fetch data for scrubber: "DF_RC"\n",
+		       DP_RC(rc));
 		D_GOTO(out, rc);
 	}
 
@@ -445,15 +449,26 @@ sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 		sc_raise_ras(ctx);
 		sc_m_pool_corr_inc(ctx);
 		rc = sc_mark_corrupt(ctx);
+		if (rc != 0)
+			D_ERROR("Error trying to mark corrupt: "DF_RC"\n",
+				DP_RC(rc));
 		ctx->sc_pool_tgt_corrupted_detected++;
 		D_ERROR("Checksum scrubber found corruption. %d so far.\n",
 			ctx->sc_pool_tgt_corrupted_detected);
 		if (sc_should_evict(ctx)) {
-			D_ERROR("Corruption threshold reached.");
+			D_ERROR("Corruption threshold reached. %d >= %d",
+				ctx->sc_pool_tgt_corrupted_detected,
+				ctx->sc_pool_evict_threshold);
+			d_tm_inc_counter(ctx->sc_metrics.scm_corrupt_targets,
+					 1);
 			rc = sc_pool_drain(ctx);
 			if (rc != 0)
-				D_ERROR("Error "DF_RC"\n", DP_RC(rc));
+				D_ERROR("Drain error: "DF_RC"\n", DP_RC(rc));
+
+			rc = SCRUB_POOL_TGT_DRAIN;
 		}
+	} else if (rc != 0) {
+		D_ERROR("Error while scrubbing: "DF_RC"\n", DP_RC(rc));
 	}
 
 out:
@@ -636,6 +651,10 @@ sc_scrub_cont(struct scrub_ctx *ctx)
 			 obj_iter_scrub_pre_cb, NULL, ctx, NULL);
 
 	if (rc != DER_SUCCESS) {
+		/* [todo-ryon]: not sure this is still needed */
+		if (rc == -DER_INPROGRESS) {
+			return 0;
+		}
 		if (rc < 0) {
 			D_ERROR("Object scrub failed: "DF_RC"\n", DP_RC(rc));
 			return rc;
@@ -646,9 +665,10 @@ sc_scrub_cont(struct scrub_ctx *ctx)
 		} else if (rc == SCRUB_CONT_STOPPING) {
 			C_TRACE("Container is stopping.");
 			/* Just fall through to return 0 */
+		} else if(rc == SCRUB_POOL_TGT_DRAIN) {
+			return rc;
 		}
 	}
-
 
 	return 0;
 }
@@ -757,6 +777,9 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 			 NULL, cont_iter_scrub_cb, ctx, NULL);
 
 	sc_pool_stop(ctx);
+	if (rc == SCRUB_POOL_TGT_DRAIN) {
+		return rc;
+	}
 	if (rc != 0) {
 		/*
 		 * If scrubbing failed for some reason, wait a minute
@@ -764,6 +787,7 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 		 */
 		D_ERROR("Scrubbing failed. "DF_RC"\n", DP_RC(rc));
 		sc_sleep(ctx, 1000 * 60);
+		rc = 0; /* error reported and handled */
 	} else {
 		sc_yield_or_sleep(ctx);
 	}

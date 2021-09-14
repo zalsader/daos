@@ -30,12 +30,12 @@ scrubbing_is_enabled()
 	return disabled == NULL;
 }
 
-static inline bool
+static inline uint32_t
 evict_threshold()
 {
 	char *thresh_str = getenv("DAOS_CSUM_SCRUB_EVICT_THRESH");
 
-	return thresh_str != NULL ? atoll(thresh_str) : 0;
+	return ((thresh_str != NULL) ? atol(thresh_str) : 10);
 }
 
 static inline int
@@ -147,6 +147,9 @@ sc_add_pool_metrics(struct scrub_ctx *ctx)
 			NULL,
 			DF_POOL_DIR"/"M_CSUM_TOTAL_CORRUPTION,
 			DP_POOL_DIR(ctx));
+	d_tm_add_metric(&ctx->sc_metrics.scm_corrupt_targets, D_TM_COUNTER,
+			"Number of corrupt target", "targets",
+			"events/corrupt_target");
 }
 
 
@@ -174,6 +177,7 @@ scrubbing_ult(void *arg)
 	uuid_t			 pool_uuid;
 	daos_handle_t		 poh;
 	int			 tgt_id;
+	int			 rc;
 
 	poh = child->spc_hdl;
 	uuid_copy(pool_uuid, child->spc_uuid);
@@ -197,11 +201,13 @@ scrubbing_ult(void *arg)
 	ctx.sc_dmi =  dss_get_module_info();
 	ctx.sc_drain_pool_tgt_fn = drain_pool_tgt_cb;
 	ctx.sc_get_rank_fn = get_crt_group_rank;
-	ctx.sc_pool_evict_threshold = 3;
+	ctx.sc_pool_evict_threshold = evict_threshold();
 
 	sc_add_pool_metrics(&ctx);
 	while (!dss_ult_exiting(child->spc_scrubbing_req)) {
-		vos_scrub_pool(&ctx);
+		rc = vos_scrub_pool(&ctx);
+		if (rc != 0)
+			break;
 	}
 }
 

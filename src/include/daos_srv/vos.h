@@ -1228,6 +1228,7 @@ struct scrub_ctx_metrics {
 	struct d_tm_node_t *scm_last_csum_calcs;
 	struct d_tm_node_t *scm_corruption;
 	struct d_tm_node_t *scm_total_corruption;
+	struct d_tm_node_t *scm_corrupt_targets;
 };
 
 /* Scrub the pool */
