@@ -34,8 +34,9 @@ sc_m_pool_start(struct scrub_ctx *ctx)
 static void
 sc_m_pool_stop(struct scrub_ctx *ctx)
 {
-	d_tm_mark_duration_end(
-		ctx->sc_metrics.scm_last_duration);
+	ctx->sc_pool_last_csum_calcs = ctx->sc_pool_csum_calcs;
+
+	d_tm_mark_duration_end(ctx->sc_metrics.scm_last_duration);
 	d_tm_set_counter(ctx->sc_metrics.scm_last_csum_calcs,
 			 ctx->sc_pool_last_csum_calcs);
 
