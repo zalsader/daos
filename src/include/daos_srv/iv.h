@@ -289,6 +289,10 @@ enum iv_key {
 	 * other servers
 	 */
 	IV_CONT_AGG_EPOCH_BOUNDRY,
+	/* Each pool target can request the leader to drain the pool target
+	 * when corruption threshold is hit.
+	 */
+	IV_CSUM_SCRUBBER,
 };
 
 int ds_iv_fetch(struct ds_iv_ns *ns, struct ds_iv_key *key, d_sg_list_t *value,

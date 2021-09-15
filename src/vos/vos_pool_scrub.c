@@ -14,7 +14,6 @@
 
 #define SCRUB_POOL_OFF 1
 #define SCRUB_CONT_STOPPING 2
-#define SCRUB_POOL_TGT_DRAIN 3
 
 static inline void
 sc_csum_calc_inc(struct scrub_ctx *ctx)
@@ -385,8 +384,7 @@ sc_pool_drain(struct scrub_ctx *ctx)
 	target_list.pta_number = 1;
 
 	D_ASSERT(ctx->sc_drain_pool_tgt_fn);
-	return ctx->sc_drain_pool_tgt_fn(ctx->sc_pool_uuid, &ranks,
-					 &target_list);
+	return ctx->sc_drain_pool_tgt_fn(ctx->sc_pool);
 }
 
 static bool
@@ -465,7 +463,7 @@ sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 			if (rc != 0)
 				D_ERROR("Drain error: "DF_RC"\n", DP_RC(rc));
 
-			rc = SCRUB_POOL_TGT_DRAIN;
+			rc = -DER_SHUTDOWN;
 		}
 	} else if (rc != 0) {
 		D_ERROR("Error while scrubbing: "DF_RC"\n", DP_RC(rc));
@@ -665,8 +663,6 @@ sc_scrub_cont(struct scrub_ctx *ctx)
 		} else if (rc == SCRUB_CONT_STOPPING) {
 			C_TRACE("Container is stopping.");
 			/* Just fall through to return 0 */
-		} else if(rc == SCRUB_POOL_TGT_DRAIN) {
-			return rc;
 		}
 	}
 
@@ -777,9 +773,8 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 			 NULL, cont_iter_scrub_cb, ctx, NULL);
 
 	sc_pool_stop(ctx);
-	if (rc == SCRUB_POOL_TGT_DRAIN) {
-		return rc;
-	}
+	if (rc == -DER_SHUTDOWN)
+		return rc; /* Don't try again if is shutting down. */
 	if (rc != 0) {
 		/*
 		 * If scrubbing failed for some reason, wait a minute

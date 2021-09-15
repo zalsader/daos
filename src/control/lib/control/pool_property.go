@@ -119,11 +119,11 @@ func PoolProperties() PoolPropertyMap {
 		"scrub": {
 			Property: PoolProperty{
 				Number:      drpc.PoolPropertyScrubSched,
-				Description: "Checksum scrubbing policy",
+				Description: "Checksum scrubbing mode",
 			},
 			values: map[string]uint64{
 				"off":        drpc.PoolScrubSchedOff,
-				"wait":       drpc.PoolScrubSchedWait,
+				"run":        drpc.PoolScrubSchedWait,
 				"continuous": drpc.PoolScrubSchedContinuous,
 			},
 		},

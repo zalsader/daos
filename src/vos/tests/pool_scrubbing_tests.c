@@ -360,8 +360,7 @@ sts_ctx_update(struct sts_context *ctx, int oid_lo, int iod_type,
 
 int fake_target_drain_call_count;
 static int
-fake_target_drain(uuid_t pool_uuid, d_rank_list_t *ranks,
-		  struct pool_target_addr_list *target_addrs)
+fake_target_drain(struct ds_pool *pool)
 {
 	fake_target_drain_call_count++;
 	return 0;

@@ -1186,8 +1186,7 @@ typedef bool(*sc_cont_is_stopping_fn_t)(void *cont);
 
 typedef int (*sc_sleep_fn_t)(void *, uint32_t msec);
 typedef int (*sc_yield_fn_t)(void *);
-typedef int (*ds_pool_tgt_drain)(uuid_t pool_uuid, d_rank_list_t *ranks,
-				 struct pool_target_addr_list *target_list);
+typedef int (*ds_pool_tgt_drain)(struct ds_pool *pool);
 typedef int (*ds_get_rank)(d_rank_t *rank);
 
 enum scrub_status {
