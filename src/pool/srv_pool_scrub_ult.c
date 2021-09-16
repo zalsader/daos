@@ -57,7 +57,7 @@ sleep_fn(void *arg, uint32_t msec)
 static inline int
 sc_schedule(struct scrub_ctx *ctx)
 {
-	return ctx->sc_pool->sp_scrub_sched;
+	return ctx->sc_pool->sp_scrub_mode;
 }
 
 static int

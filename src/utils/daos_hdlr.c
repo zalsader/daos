@@ -199,23 +199,23 @@ pool_decode_props(struct cmd_args_s *ap, daos_prop_t *props)
 	}
 
 	D_PRINT("Checksum Scrubber\n");
-	entry = daos_prop_entry_get(props, DAOS_PROP_PO_SCRUB_SCHED);
+	entry = daos_prop_entry_get(props, DAOS_PROP_PO_SCRUB_MODE);
 	bool scrubbing_enabled =
-		entry->dpe_val > DAOS_SCRUB_SCHED_OFF &&
-		entry->dpe_val < DAOS_SCRUB_SCHED_INVALID;
+		entry->dpe_val > DAOS_SCRUB_MODE_OFF &&
+		entry->dpe_val < DAOS_SCRUB_MODE_INVALID;
 	if (entry == NULL) {
 		fprintf(stderr, "scrubbing schedule property not found\n");
 		rc = -DER_INVAL;
 	} else {
 		D_PRINT("\tSchedule:\t");
 		switch (entry->dpe_val) {
-		case DAOS_SCRUB_SCHED_OFF:
+		case DAOS_SCRUB_MODE_OFF:
 			D_PRINT("Off\n");
 			break;
-		case DAOS_SCRUB_SCHED_RUN_WAIT:
+		case DAOS_SCRUB_MODE_RUN:
 			D_PRINT("Run-Wait\n");
 			break;
-		case DAOS_SCRUB_SCHED_CONTINUOUS:
+		case DAOS_SCRUB_MODE_CONTINUOUS:
 			D_PRINT("Continuous\n");
 			break;
 		default:

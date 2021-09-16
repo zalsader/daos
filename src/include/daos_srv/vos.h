@@ -1285,7 +1285,6 @@ struct scrub_ctx {
 	sc_yield_fn_t		 sc_yield_fn;
 	void			*sc_sched_arg;
 
-	enum scrub_status	 sc_status;
 	bool			 sc_did_yield;
 };
 

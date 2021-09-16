@@ -78,15 +78,33 @@ sc_chunksize(const struct scrub_ctx *ctx)
 }
 
 static inline int
-sc_schedule(const struct scrub_ctx *ctx)
+sc_mode(const struct scrub_ctx *ctx)
 {
-	return ctx->sc_pool->sp_scrub_sched;
+	return ctx->sc_pool->sp_scrub_mode;
 }
 
 static inline int
 sc_freq(const struct scrub_ctx *ctx)
 {
 	return ctx->sc_pool->sp_scrub_freq_sec;
+}
+
+static inline uint64_t
+sc_pad(const struct scrub_ctx *ctx)
+{
+	return ctx->sc_pool->sp_scrub_pad;
+}
+
+static inline uint64_t
+sc_credits(const struct scrub_ctx *ctx)
+{
+	return ctx->sc_pool->sp_scrub_cred;
+}
+
+static inline uint64_t
+sc_thresh(const struct scrub_ctx *ctx)
+{
+	return ctx->sc_pool->sp_scrub_thresh;
 }
 
 static inline void
@@ -159,20 +177,21 @@ sc_yield_sleep_while_running(struct scrub_ctx *ctx)
 	uint64_t msec_between = 0;
 	struct timespec now;
 
-	/* must have a frequency set */
-	D_ASSERT(ctx->sc_pool->sp_scrub_freq_sec > 0);
+	/* must have a frequency or padding set */
+	D_ASSERT(sc_freq(ctx) > 0 || sc_pad(ctx) > 0);
 
 	d_gettime(&now);
 	sc_credit_decrement(ctx);
 	if (ctx->sc_credits_left > 0)
 		return;
 
-	if (sc_schedule(ctx) == DAOS_SCRUB_SCHED_CONTINUOUS) {
+	if (sc_mode(ctx) == DAOS_SCRUB_MODE_CONTINUOUS) {
 		msec_between = get_ms_between_periods(ctx->sc_pool_start_scrub,
-			now, ctx->sc_pool->sp_scrub_freq_sec,
-			ctx->sc_pool_last_csum_calcs,
+			now, sc_freq(ctx), ctx->sc_pool_last_csum_calcs,
 			/* -1 to convert to index (from count) */
 			ctx->sc_pool_csum_calcs - 1);
+	} else {
+		msec_between = sc_pad(ctx);
 	}
 
 	if (msec_between == 0)
@@ -207,6 +226,8 @@ sc_yield_or_sleep(struct scrub_ctx *ctx)
 	if (diff.tv_sec < sc_freq(ctx)) {
 		left_sec = sc_freq(ctx) - diff.tv_sec;
 		sc_sleep(ctx, left_sec * 1000);
+	} else if (sc_pad(ctx) > 0){
+		sc_sleep(ctx, sc_pad(ctx));
 	} else {
 		sc_yield(ctx);
 	}
@@ -215,7 +236,8 @@ sc_yield_or_sleep(struct scrub_ctx *ctx)
 static bool
 sc_scrub_enabled(struct scrub_ctx *ctx)
 {
-	return sc_schedule(ctx) != DAOS_SCRUB_SCHED_OFF && sc_freq(ctx) > 0;
+	return sc_mode(ctx) != DAOS_SCRUB_MODE_OFF;
+//	return sc_mode(ctx) != DAOS_SCRUB_MODE_OFF && sc_freq(ctx) > 0;
 }
 
 static void
@@ -566,7 +588,7 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 		return SCRUB_CONT_STOPPING;
 	}
 
-	if (ctx->sc_pool->sp_scrub_sched == DAOS_SCRUB_SCHED_OFF) {
+	if (ctx->sc_pool->sp_scrub_mode == DAOS_SCRUB_MODE_OFF) {
 		C_TRACE("scrubbing is off now");
 		return SCRUB_POOL_OFF;
 	}
@@ -735,7 +757,6 @@ sc_pool_start(struct scrub_ctx *ctx)
 	ctx->sc_pool_last_csum_calcs = ctx->sc_pool_csum_calcs;
 	ctx->sc_pool_csum_calcs = 0;
 	d_gettime(&ctx->sc_pool_start_scrub);
-	ctx->sc_status = SCRUB_STATUS_RUNNING;
 
 	sc_m_pool_csum_reset(ctx);
 	sc_m_pool_start(ctx);
@@ -744,8 +765,6 @@ sc_pool_start(struct scrub_ctx *ctx)
 static void
 sc_pool_stop(struct scrub_ctx *ctx)
 {
-	ctx->sc_status = SCRUB_STATUS_NOT_RUNNING;
-
 	sc_m_pool_stop(ctx);
 }
 

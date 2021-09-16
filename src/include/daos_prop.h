@@ -69,12 +69,12 @@ enum daos_pool_props {
 	DAOS_PROP_PO_SVC_LIST,
 	DAOS_PROP_PO_EC_CELL_SZ,
 	/**
-	 * Schedule that the checksum scrubber will run. See
-	 * DAOS_SCRUBBER_SCHED_*
+	 * Mode that the checksum scrubber will run. See
+	 * DAOS_SCRUB_MODE_*
 	 *
-	 * default: DAOS_SCRUB_SCHED_OFF
+	 * default: DAOS_SCRUB_MODE_CONTINUOUS
 	 */
-	DAOS_PROP_PO_SCRUB_SCHED,
+	DAOS_PROP_PO_SCRUB_MODE,
 	/**
 	 * How frequently the schedule will run. In seconds.
 	 *
@@ -82,11 +82,24 @@ enum daos_pool_props {
 	 */
 	DAOS_PROP_PO_SCRUB_FREQ,
 	/**
+	 * How long to wait in milliseconds between checksum scrubs
+	 *
+	 * default: 0
+	 */
+	DAOS_PROP_PO_SCRUB_PAD,
+	/**
 	 * Number of credits consumed before scrubber will yield/sleep
 	 *
 	 * default: 1 (will yield after every credit consumed)
 	 */
 	DAOS_PROP_PO_SCRUB_CREDITS,
+	/**
+	 * Number of silent data corruptions on a pool target before the pool
+	 * target is evicted.
+	 *
+	 * default: 10
+	 */
+	DAOS_PROP_PO_SCRUB_THRESH,
 	DAOS_PROP_PO_MAX,
 };
 
@@ -112,10 +125,10 @@ enum {
  * It is expected that these stay contiguous.
  */
 enum {
-	DAOS_SCRUB_SCHED_OFF = 0,
-	DAOS_SCRUB_SCHED_RUN_WAIT = 1,
-	DAOS_SCRUB_SCHED_CONTINUOUS = 2,
-	DAOS_SCRUB_SCHED_INVALID = 3,
+	DAOS_SCRUB_MODE_OFF = 0,
+	DAOS_SCRUB_MODE_RUN = 1,
+	DAOS_SCRUB_MODE_CONTINUOUS = 2,
+	DAOS_SCRUB_MODE_INVALID = 3,
 };
 
 /** self healing strategy bits */

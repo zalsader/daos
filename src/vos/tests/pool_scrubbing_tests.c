@@ -123,6 +123,7 @@ struct sts_context {
 	void			*tsc_sched_arg;
 	int			 tsc_fd;
 	uint32_t		 tsc_pool_evict_threshold;
+	int			 tsc_expected_rc;
 };
 
 static void
@@ -403,15 +404,14 @@ sts_ctx_do_scrub(struct sts_context *ctx)
 	s_ctx.sc_yield_fn = ctx->tsc_yield_fn;
 	s_ctx.sc_sched_arg = ctx->tsc_sched_arg;
 	s_ctx.sc_cont_lookup_fn = ctx->tsc_get_cont_fn;
-	ctx->tsc_scrub_ctx.sc_drain_pool_tgt_fn = fake_target_drain;
-	ctx->tsc_scrub_ctx.sc_get_rank_fn = fake_get_rank;
+	s_ctx.sc_drain_pool_tgt_fn = fake_target_drain;
+	s_ctx.sc_get_rank_fn = fake_get_rank;
 	s_ctx.sc_pool = &ctx->tsc_pool;
 	s_ctx.sc_dmi = &ctx->tsc_dmi;
 	s_ctx.sc_credits_left = 1;
-	ctx->tsc_scrub_ctx.sc_pool_evict_threshold =
-		ctx->tsc_pool_evict_threshold;
+	s_ctx.sc_pool_evict_threshold = ctx->tsc_pool_evict_threshold;
 
-	assert_success(vos_scrub_pool(&s_ctx));
+	assert_rc_equal(ctx->tsc_expected_rc, vos_scrub_pool(&s_ctx));
 }
 
 /**
@@ -428,7 +428,7 @@ scrubbing_with_no_corruption_sv(void **state)
 	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey", 1, false);
 
 	/** act */
-	ctx->tsc_pool.sp_scrub_sched = DAOS_SCRUB_SCHED_RUN_WAIT;
+	ctx->tsc_pool.sp_scrub_mode = DAOS_SCRUB_MODE_RUN;
 	sts_ctx_do_scrub(ctx);
 
 	/** verify after scrub value is still good */
@@ -750,12 +750,9 @@ drain_target(void **state)
 	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey1", 1, true);
 	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey2", 1, true);
 	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey3", 1, true);
-
-	sts_ctx_do_scrub(ctx);
-
-	assert_int_equal(0, fake_target_drain_call_count);
-
 	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey4", 1, true);
+
+	ctx->tsc_expected_rc = -DER_SHUTDOWN;
 	sts_ctx_do_scrub(ctx);
 	assert_int_equal(1, fake_target_drain_call_count);
 
@@ -819,9 +816,11 @@ sts_setup(void **state)
 	*state = ctx;
 
 	/* set some defaults */
-	ctx->tsc_pool.sp_scrub_sched = DAOS_SCRUB_SCHED_RUN_WAIT;
+	ctx->tsc_pool.sp_scrub_mode = DAOS_SCRUB_MODE_RUN;
 	ctx->tsc_pool.sp_scrub_freq_sec = 1;
+	ctx->tsc_pool.sp_scrub_pad = 0;
 	ctx->tsc_pool.sp_scrub_cred = 1;
+	ctx->tsc_pool.sp_scrub_thresh = 10;
 	fake_target_drain_call_count = 0;
 
 	return 0;

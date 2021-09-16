@@ -118,13 +118,13 @@ func PoolProperties() PoolPropertyMap {
 		},
 		"scrub": {
 			Property: PoolProperty{
-				Number:      drpc.PoolPropertyScrubSched,
+				Number:      drpc.PoolPropertyScrubMode,
 				Description: "Checksum scrubbing mode",
 			},
 			values: map[string]uint64{
-				"off":        drpc.PoolScrubSchedOff,
-				"run":        drpc.PoolScrubSchedWait,
-				"continuous": drpc.PoolScrubSchedContinuous,
+				"off":        drpc.PoolScrubModeOff,
+				"run":        drpc.PoolScrubModeWait,
+				"continuous": drpc.PoolScrubModeContinuous,
 			},
 		},
 		"scrub-freq": {
@@ -149,12 +149,57 @@ func PoolProperties() PoolPropertyMap {
 				jsonNumeric: true,
 			},
 		},
+		"scrub-pad": {
+			Property: PoolProperty{
+				Number:      drpc.PoolPropertyScrubPad,
+				Description: "Checksum scrubbing padding",
+				valueHandler: func(s string) (*PoolPropertyValue, error) {
+					rbErr := errors.Errorf("invalid Scrubbing Padding value %s", s)
+					rsPct, err := strconv.ParseUint(strings.ReplaceAll(s, "%", ""), 10, 64)
+					if err != nil {
+						return nil, rbErr
+					}
+					return &PoolPropertyValue{rsPct}, nil
+				},
+				valueStringer: func(v *PoolPropertyValue) string {
+					n, err := v.GetNumber()
+					if err != nil {
+						return "not set"
+					}
+					return fmt.Sprintf("%d", n)
+				},
+				jsonNumeric: true,
+			},
+		},
 		"scrub-cred": {
 			Property: PoolProperty{
 				Number:      drpc.PoolPropertyScrubCred,
 				Description: "Checksum scrubbing credits",
 				valueHandler: func(s string) (*PoolPropertyValue, error) {
 					rbErr := errors.Errorf("invalid Scrubbing Credits value %s", s)
+					rsPct, err := strconv.ParseUint(strings.ReplaceAll(s, "%", ""), 10, 64)
+					if err != nil {
+						return nil, rbErr
+					}
+
+					return &PoolPropertyValue{rsPct}, nil
+				},
+				valueStringer: func(v *PoolPropertyValue) string {
+					n, err := v.GetNumber()
+					if err != nil {
+						return "not set"
+					}
+					return fmt.Sprintf("%d", n)
+				},
+				jsonNumeric: true,
+			},
+		},
+		"scrub-thresh": {
+			Property: PoolProperty{
+				Number:      drpc.PoolPropertyScrubThresh,
+				Description: "Checksum scrubbing threshold",
+				valueHandler: func(s string) (*PoolPropertyValue, error) {
+					rbErr := errors.Errorf("invalid Scrubbing Threshold value %s", s)
 					rsPct, err := strconv.ParseUint(strings.ReplaceAll(s, "%", ""), 10, 64)
 					if err != nil {
 						return nil, rbErr
