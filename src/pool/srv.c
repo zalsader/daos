@@ -15,6 +15,7 @@
 #include <daos/rpc.h>
 #include <daos_srv/daos_engine.h>
 #include <daos_srv/bio.h>
+#include <daos_srv/srv_csum.h>
 #include "rpc.h"
 #include "srv_internal.h"
 #include "srv_layout.h"
@@ -37,9 +38,13 @@ init(void)
 	if (rc)
 		D_GOTO(err_hdl_hash, rc);
 
-	rc = ds_pool_prop_default_init();
+	rc = scrub_iv_init();
 	if (rc)
 		D_GOTO(err_pool_iv, rc);
+
+	rc = ds_pool_prop_default_init();
+	if (rc)
+		D_GOTO(err_pool_scrub_iv, rc);
 
 	ec_agg_disabled = false;
 	d_getenv_bool("DAOS_EC_AGG_DISABLE", &ec_agg_disabled);
@@ -53,6 +58,8 @@ init(void)
 
 err_pool_iv:
 	ds_pool_iv_fini();
+err_pool_scrub_iv:
+	scrub_iv_fini();
 err_hdl_hash:
 	ds_pool_hdl_hash_fini();
 err_pool_cache:
@@ -67,6 +74,7 @@ fini(void)
 	ds_pool_rsvc_class_unregister();
 	ds_pool_hdl_hash_fini();
 	ds_pool_iv_fini();
+	scrub_iv_fini();
 	ds_pool_cache_fini();
 	ds_pool_prop_default_fini();
 	return 0;

@@ -14,6 +14,9 @@
 
 #define SCRUB_POOL_OFF 1
 #define SCRUB_CONT_STOPPING 2
+#define MS2NS(s) (s * 1000000)
+#define SEC2NS(s) (s * 1E9)
+#define NS2MS(s) (s / 1E6)
 
 static inline void
 sc_csum_calc_inc(struct scrub_ctx *ctx)
@@ -128,13 +131,25 @@ sc_sleep(struct scrub_ctx *ctx, uint32_t ms)
 	}
 }
 
-static bool
+static inline bool
 sc_cont_is_stopping(struct scrub_ctx *ctx)
 {
 	if (ctx->sc_cont_is_stopping_fn == NULL)
 		return false;
 	return ctx->sc_cont_is_stopping_fn(ctx->sc_cont.scs_cont_src);
 }
+static inline bool
+sc_pool_is_stopping(struct scrub_ctx *ctx)
+{
+	return ctx->sc_pool->sp_stopping;
+}
+
+static inline bool
+sc_is_stopping(struct scrub_ctx *ctx)
+{
+	return sc_pool_is_stopping(ctx) || sc_cont_is_stopping(ctx);
+}
+
 
 /**
  * Get the number of records in the chunk at index 'i' of the current recx
@@ -180,16 +195,26 @@ sc_yield_sleep_while_running(struct scrub_ctx *ctx)
 	/* must have a frequency or padding set */
 	D_ASSERT(sc_freq(ctx) > 0 || sc_pad(ctx) > 0);
 
-	d_gettime(&now);
 	sc_credit_decrement(ctx);
 	if (ctx->sc_credits_left > 0)
 		return;
 
 	if (sc_mode(ctx) == DAOS_SCRUB_MODE_CONTINUOUS) {
-		msec_between = get_ms_between_periods(ctx->sc_pool_start_scrub,
-			now, sc_freq(ctx), ctx->sc_pool_last_csum_calcs,
-			/* -1 to convert to index (from count) */
-			ctx->sc_pool_csum_calcs - 1);
+		do {
+			if (sc_is_stopping(ctx))
+				return;
+
+			d_gettime(&now);
+			msec_between =
+				get_ms_between_periods(ctx->sc_pool_start_scrub,
+						       now, sc_freq(ctx),
+						       ctx->sc_pool_last_csum_calcs,
+					/* -1 to convert to index (from count) */
+						       ctx->sc_pool_csum_calcs - 1);
+
+			d_tm_set_gauge(ctx->sc_metrics.scm_pool_ult_wait_time, msec_between);
+			ctx->sc_sleep_fn(ctx->sc_sched_arg, min(msec_between, 1000));
+		} while (msec_between > 0);
 	} else {
 		msec_between = sc_pad(ctx);
 	}
@@ -214,23 +239,66 @@ seconds_to_wait_while_disabled()
 	return sec != NULL ? atoll(sec) : 5;
 }
 
+
+static inline bool
+sc_sleep_freq(struct scrub_ctx *ctx)
+{
+	struct timespec start;
+	struct timespec sleep_exp;
+	bool		slept = false;
+
+	if (ctx->sc_sleep_fn == NULL)
+		return false;
+
+	start = ctx->sc_pool_start_scrub;
+	sleep_exp = ctx->sc_pool_start_scrub;
+	d_timeinc(&sleep_exp, SEC2NS(sc_freq(ctx)));
+
+	while (d_timeleft_ns(&sleep_exp) > 0) {
+		if (sc_pool_is_stopping(ctx))
+			break;
+		/* recalculate end every time in case the frequency changes */
+		sleep_exp = start;
+		d_timeinc(&sleep_exp, SEC2NS(sc_freq(ctx)));
+		/* wait at most another second */
+		d_tm_set_gauge(ctx->sc_metrics.scm_pool_ult_wait_time,
+			       NS2MS(d_timeleft_ns(&sleep_exp)));
+		ctx->sc_sleep_fn(ctx->sc_sched_arg,
+				 min(NS2MS(d_timeleft_ns(&sleep_exp)), 1000));
+
+		slept = true;
+	}
+
+	return slept;
+}
+
 void
 sc_yield_or_sleep(struct scrub_ctx *ctx)
 {
 	struct timespec	now, diff;
 	uint32_t	left_sec;
+	bool		slept;
 
-	d_gettime(&now);
-	diff = d_timediff(ctx->sc_pool_start_scrub, now);
-
-	if (diff.tv_sec < sc_freq(ctx)) {
-		left_sec = sc_freq(ctx) - diff.tv_sec;
-		sc_sleep(ctx, left_sec * 1000);
-	} else if (sc_pad(ctx) > 0){
-		sc_sleep(ctx, sc_pad(ctx));
-	} else {
-		sc_yield(ctx);
+	slept = sc_sleep_freq(ctx);
+	if (!slept) {
+		if (sc_pad(ctx) > 0)
+			sc_sleep(ctx, sc_pad(ctx));
+		else
+			sc_yield(ctx);
 	}
+
+//
+//	d_gettime(&now);
+//	diff = d_timediff(ctx->sc_pool_start_scrub, now);
+//
+//	if (diff.tv_sec < sc_freq(ctx)) {
+//		left_sec = sc_freq(ctx) - diff.tv_sec;
+//		sc_sleep(ctx, left_sec * 1000);
+//	} else if (sc_pad(ctx) > 0){
+//		sc_sleep(ctx, sc_pad(ctx));
+//	} else {
+//		sc_yield(ctx);
+//	}
 }
 
 static bool
@@ -394,7 +462,7 @@ sc_pool_drain(struct scrub_ctx *ctx)
 		D_ERROR("Unable to get rank: "DF_RC"\n", DP_RC(rc));
 		return rc;
 	}
-	D_INFO("Draining target. rank: %d, target: %d", rank,
+	D_ERROR("Draining target. rank: %d, target: %d", rank,
 	       ctx->sc_dmi->dmi_tgt_id);
 
 	ranks.rl_ranks = &rank;
@@ -406,8 +474,8 @@ sc_pool_drain(struct scrub_ctx *ctx)
 
 	target_list.pta_number = 1;
 
-	D_ASSERT(ctx->sc_drain_pool_tgt_fn);
-	return ctx->sc_drain_pool_tgt_fn(ctx->sc_pool);
+	return ctx->sc_drain_pool_tgt_fn(ctx->sc_pool, rank,
+					 ctx->sc_dmi->dmi_tgt_id);
 }
 
 static bool
@@ -470,6 +538,10 @@ sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 		sc_raise_ras(ctx);
 		sc_m_pool_corr_inc(ctx);
 		rc = sc_mark_corrupt(ctx);
+		if (bio_iov2media(biov) == DAOS_MEDIA_NVME) {
+			bio_log_csum_err(ctx->sc_dmi->dmi_nvme_ctxt,
+					 ctx->sc_dmi->dmi_tgt_id);
+		}
 		if (rc != 0)
 			D_ERROR("Error trying to mark corrupt: "DF_RC"\n",
 				DP_RC(rc));
@@ -791,7 +863,7 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 	param.ip_epr.epr_hi = DAOS_EPOCH_MAX;
 	rc = vos_iterate(&param, VOS_ITER_COUUID, false, &anchor,
 			 NULL, cont_iter_scrub_cb, ctx, NULL);
-
+	d_tm_inc_counter(ctx->sc_metrics.scm_scrub_count, 1);
 	sc_pool_stop(ctx);
 	if (rc == -DER_SHUTDOWN)
 		return rc; /* Don't try again if is shutting down. */
@@ -810,7 +882,6 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 	return rc;
 }
 
-#define MS2NS(s) (s * 1000000)
 
 uint64_t
 get_ms_between_periods(struct timespec start_time, struct timespec cur_time,

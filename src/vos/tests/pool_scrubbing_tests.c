@@ -361,7 +361,7 @@ sts_ctx_update(struct sts_context *ctx, int oid_lo, int iod_type,
 
 int fake_target_drain_call_count;
 static int
-fake_target_drain(struct ds_pool *pool)
+fake_target_drain(struct ds_pool *pool, d_rank_t rank, uint32_t target_id)
 {
 	fake_target_drain_call_count++;
 	return 0;

@@ -2619,6 +2619,53 @@ scrubbing_with_large_sleep(void **state)
 	basic_scrubbing_test(state, "100000");
 }
 
+static void
+scrubbing_handles_corruption(void **state)
+{
+	struct csum_test_ctx	 ctx = {0};
+	daos_oclass_id_t	 oc = dts_csum_oc;
+	int			 rc;
+	char			*akey;
+	int			 i;
+
+	if (csum_ec_enabled() && !test_runable(*state, csum_ec_grp_size()))
+		skip();
+	FAULT_INJECTION_REQUIRED();
+
+	/**
+	 * Setup
+	 */
+	/* pointer to ctx akey to easily change */
+	setup_from_test_args(&ctx, (test_arg_t *)*state);
+	/* Make scrubbing is running a lot */
+	dmg_pool_set_prop(dmg_config_file, "scrub", "run",
+			  ctx.test_arg->pool.pool_uuid);
+	dmg_pool_set_prop(dmg_config_file, "scrub-freq", "1",
+			  ctx.test_arg->pool.pool_uuid);
+
+	setup_cont_obj(&ctx, DAOS_PROP_CO_CSUM_CRC32, false, 1024, oc);
+
+	/** Perform the update */
+	server_corrupt_disk(ctx.test_arg->group);
+	setup_simple_data(&ctx);
+	akey = ctx.update_iod.iod_name.iov_buf;
+
+	for (i = 0; i < 3; i++) {
+		rc = daos_obj_update(ctx.oh, DAOS_TX_NONE, 0, &ctx.dkey, 1,
+				     &ctx.update_iod, &ctx.update_sgl, NULL);
+		akey[0]++;
+		assert_success(rc);
+	}
+	server_clear_fault(ctx.test_arg->group);
+
+	/**
+	 * Clean up
+	 */
+	sleep(60); /* Make sure scrubber has had time to run */
+	cleanup_cont_obj(&ctx);
+	cleanup_data(&ctx);
+}
+
 static int
 setup(void **state)
 {
@@ -2723,7 +2770,9 @@ static const struct CMUnitTest csum_tests[] = {
 		  scrubbing_a_lot),
 	CSUM_TEST("DAOS_SCRUBBING01: A basic scrubbing test with a long wait "
 		  "in between. Should still be able to destroy cont and pool",
-		  scrubbing_with_large_sleep)
+		  scrubbing_with_large_sleep),
+	CSUM_TEST("WIP DAOS_SCRUBBING02: scrubbing detects and handles corruption",
+		  scrubbing_handles_corruption),
 };
 
 static int

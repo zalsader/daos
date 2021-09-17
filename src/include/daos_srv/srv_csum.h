@@ -35,5 +35,7 @@ ds_csum_add2iod(daos_iod_t *iod, struct daos_csummer *csummer,
 /* For the pool target to start and stop the scrubbing ult */
 int ds_start_scrubbing_ult(struct ds_pool_child *child);
 void ds_stop_scrubbing_ult(struct ds_pool_child *child);
+int scrub_iv_init(void);
+int scrub_iv_fini(void);
 
 #endif

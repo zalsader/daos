@@ -1186,14 +1186,9 @@ typedef bool(*sc_cont_is_stopping_fn_t)(void *cont);
 
 typedef int (*sc_sleep_fn_t)(void *, uint32_t msec);
 typedef int (*sc_yield_fn_t)(void *);
-typedef int (*ds_pool_tgt_drain)(struct ds_pool *pool);
+typedef int (*ds_pool_tgt_drain)(struct ds_pool *pool, d_rank_t rank,
+	uint32_t target_id);
 typedef int (*ds_get_rank)(d_rank_t *rank);
-
-enum scrub_status {
-	SCRUB_STATUS_UNKNOWN = 0,
-	SCRUB_STATUS_RUNNING = 1,
-	SCRUB_STATUS_NOT_RUNNING = 2,
-};
 
 /*
  * telemetry metrics for the scrubber
@@ -1228,6 +1223,7 @@ struct scrub_ctx_metrics {
 	struct d_tm_node_t *scm_corruption;
 	struct d_tm_node_t *scm_total_corruption;
 	struct d_tm_node_t *scm_corrupt_targets;
+	struct d_tm_node_t *scm_scrub_count;
 };
 
 /* Scrub the pool */

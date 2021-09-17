@@ -109,6 +109,9 @@ cont_is_stopping_cb(void *cont)
 static void
 sc_add_pool_metrics(struct scrub_ctx *ctx)
 {
+	d_tm_add_metric(&ctx->sc_metrics.scm_scrub_count,
+			D_TM_COUNTER, "Number of full scans",
+			NULL,DF_POOL_DIR"/scans_completed", DP_POOL_DIR(ctx));
 	d_tm_add_metric(&ctx->sc_metrics.scm_start,
 			D_TM_TIMESTAMP,
 			"When the current scrubbing started", NULL,
@@ -163,6 +166,7 @@ struct scrub_iv {
 	uuid_t		siv_pool_uuid;
 	d_rank_t	siv_rank;
 	int		siv_target;
+	d_rank_t	siv_master_rank;
 };
 
 static int
@@ -191,7 +195,7 @@ scrub_iv_ent_init(struct ds_iv_key *iv_key, void *data,
 		    struct ds_iv_entry *entry)
 {
 	int rc;
-
+D_PRINT("[RYON] %s:%d [%s()] > \n", __FILE__, __LINE__, __FUNCTION__);
 	rc = scrub_iv_alloc_internal(&entry->iv_value);
 	if (rc)
 		return rc;
@@ -268,6 +272,12 @@ scrub_iv_ent_update(struct ds_iv_entry *entry, struct ds_iv_key *key,
 	if (rc)
 		return rc;
 
+	D_ERROR("Rank %d: Draining rank %d, target %d. Master rank is: %d", rank, src_iv->siv_rank,
+		src_iv->siv_target, src_iv->siv_master_rank);
+	/* [todo-ryon]: Not sure about this?? */
+	if (rank != src_iv->siv_master_rank)
+		return 0;
+
 	return drain_pool_ult(src_iv->siv_pool_uuid, src_iv->siv_rank,
 		       src_iv->siv_target);
 }
@@ -311,12 +321,18 @@ scrub_iv_fini(void)
 	return ds_iv_class_unregister(IV_CSUM_SCRUBBER);
 }
 
+struct drain_args {
+	struct ds_pool *ptd_pool;
+	d_rank_t ptd_rank;
+	uint32_t ptd_target_id;
+};
+
 /* IV is used to communicate the need for a drain to be initialized */
 void
 scrub_iv_update_ult(void *arg)
 {
-	struct dss_module_info	*dmi = dss_get_module_info();
-	struct ds_pool		*pool = arg;
+	struct drain_args	*drain_args = arg;
+	struct ds_pool		*pool = drain_args->ptd_pool;
 	struct scrub_iv		 iv = {0};
 	d_sg_list_t		 sgl;
 	d_iov_t			 iov;
@@ -324,8 +340,9 @@ scrub_iv_update_ult(void *arg)
 	int			 rc;
 
 	uuid_copy(iv.siv_pool_uuid, pool->sp_uuid);
-	crt_group_rank(NULL, &iv.siv_rank);
-	iv.siv_target = dmi->dmi_tgt_id;
+	iv.siv_rank = drain_args->ptd_rank;
+	iv.siv_target = drain_args->ptd_target_id;
+	iv.siv_master_rank = pool->sp_iv_ns->iv_master_rank;
 
 	iov.iov_buf = &iv;
 	iov.iov_len = sizeof(iv);
@@ -336,6 +353,7 @@ scrub_iv_update_ult(void *arg)
 
 	memset(&key, 0, sizeof(key));
 	key.class_id = IV_CSUM_SCRUBBER;
+	key.rank = drain_args->ptd_rank;
 	rc = ds_iv_update(pool->sp_iv_ns, &key, &sgl, CRT_IV_SHORTCUT_TO_ROOT,
 			  CRT_IV_SYNC_NONE, 0, false);
 	if (rc)
@@ -343,15 +361,20 @@ scrub_iv_update_ult(void *arg)
 }
 
 static int
-drain_pool_tgt_cb(struct ds_pool *pool)
+drain_pool_tgt_cb(struct ds_pool *pool, d_rank_t rank, uint32_t target_id)
 {
-	int				rc;
-	ABT_thread			thread = ABT_THREAD_NULL;
+	int			rc;
+	ABT_thread		thread = ABT_THREAD_NULL;
+	struct drain_args	drain_args = {
+		.ptd_pool = pool,
+		.ptd_rank = rank,
+		.ptd_target_id = target_id
+	};
 
 	/* Create a ULT to update in xstream 0. IV is used to communicate to
 	 * leader that a drain needs to be initialized
 	 */
-	rc = dss_ult_create(scrub_iv_update_ult, pool, DSS_XS_SYS, 0, 0,
+	rc = dss_ult_create(scrub_iv_update_ult, &drain_args, DSS_XS_SYS, 0, 0,
 			    &thread);
 
 	if (rc != 0) {
@@ -395,7 +418,6 @@ scrubbing_ult(void *arg)
 	ctx.sc_cont_lookup_fn = cont_lookup_cb;
 	ctx.sc_cont_put_fn = cont_put_cb;
 	ctx.sc_cont_is_stopping_fn = cont_is_stopping_cb;
-	ctx.sc_status = SCRUB_STATUS_NOT_RUNNING;
 	ctx.sc_credits_left = ctx.sc_pool->sp_scrub_cred;
 	ctx.sc_dmi =  dss_get_module_info();
 	ctx.sc_drain_pool_tgt_fn = drain_pool_tgt_cb;
@@ -431,9 +453,6 @@ ds_start_scrubbing_ult(struct ds_pool_child *child)
 
 	C_TRACE(DF_PTGT": Checksum scrubbing Enabled. Creating ULT.\n",
 		DP_PTGT(child->spc_uuid, dmi->dmi_tgt_id));
-	rc = scrub_iv_init();
-	if (rc != DER_SUCCESS && rc != -DER_EXIST)
-		D_ERROR("IV init error: "DF_RC"\n", DP_RC(rc));
 
 	rc = dss_ult_create(scrubbing_ult, child, DSS_XS_SELF, 0, 0,
 			    &thread);
@@ -473,6 +492,4 @@ ds_stop_scrubbing_ult(struct ds_pool_child *child)
 	sched_req_wait(child->spc_scrubbing_req, true);
 	sched_req_put(child->spc_scrubbing_req);
 	child->spc_scrubbing_req = NULL;
-
-	scrub_iv_fini();
 }
