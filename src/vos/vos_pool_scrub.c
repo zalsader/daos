@@ -853,7 +853,7 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 	}
 
 	if (!sc_scrub_enabled(ctx)) {
-		sc_sleep(ctx, seconds_to_wait_while_disabled());
+		sc_sleep(ctx, seconds_to_wait_while_disabled() * 1000);
 		return 0;
 	}
 

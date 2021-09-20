@@ -110,8 +110,8 @@ static void
 sc_add_pool_metrics(struct scrub_ctx *ctx)
 {
 	d_tm_add_metric(&ctx->sc_metrics.scm_scrub_count,
-			D_TM_COUNTER, "Number of full scans",
-			NULL,DF_POOL_DIR"/scans_completed", DP_POOL_DIR(ctx));
+			D_TM_COUNTER, "Number of full VOS tree scrubs",
+			NULL,DF_POOL_DIR"/scrubs_completed", DP_POOL_DIR(ctx));
 	d_tm_add_metric(&ctx->sc_metrics.scm_start,
 			D_TM_TIMESTAMP,
 			"When the current scrubbing started", NULL,
@@ -195,7 +195,6 @@ scrub_iv_ent_init(struct ds_iv_key *iv_key, void *data,
 		    struct ds_iv_entry *entry)
 {
 	int rc;
-D_PRINT("[RYON] %s:%d [%s()] > \n", __FILE__, __LINE__, __FUNCTION__);
 	rc = scrub_iv_alloc_internal(&entry->iv_value);
 	if (rc)
 		return rc;

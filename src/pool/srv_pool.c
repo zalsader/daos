@@ -334,6 +334,7 @@ pool_prop_default_copy(daos_prop_t *prop_def, daos_prop_t *prop)
 		case DAOS_PROP_PO_SCRUB_MODE:
 		case DAOS_PROP_PO_SCRUB_FREQ:
 		case DAOS_PROP_PO_SCRUB_PAD:
+		case DAOS_PROP_PO_SCRUB_CREDITS:
 		case DAOS_PROP_PO_SCRUB_THRESH:
 			entry_def->dpe_val = entry->dpe_val;
 			break;
