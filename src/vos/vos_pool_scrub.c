@@ -193,7 +193,7 @@ sc_yield_sleep_while_running(struct scrub_ctx *ctx)
 	struct timespec now;
 
 	/* must have a frequency or padding set */
-	D_ASSERT(sc_freq(ctx) > 0 || sc_pad(ctx) > 0);
+	D_ASSERT(sc_freq(ctx) > 0 || sc_pad(ctx) > 0); /* [todo-ryon]: make sure dmg prevents this? or something */
 
 	sc_credit_decrement(ctx);
 	if (ctx->sc_credits_left > 0)
@@ -688,6 +688,7 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 			memset(&ctx->sc_iod, 0, sizeof(ctx->sc_iod));
 		} else {
 			ctx->sc_iod.iod_name = param->ip_akey;
+			sc_obj_value_reset(ctx);
 		}
 		break;
 	case VOS_ITER_SINGLE:
@@ -828,6 +829,8 @@ sc_pool_start(struct scrub_ctx *ctx)
 	/* remember previous checksum calculations */
 	ctx->sc_pool_last_csum_calcs = ctx->sc_pool_csum_calcs;
 	ctx->sc_pool_csum_calcs = 0;
+	ctx->sc_credits_left = sc_credits(ctx);
+	ctx->sc_did_yield = false;
 	d_gettime(&ctx->sc_pool_start_scrub);
 
 	sc_m_pool_csum_reset(ctx);

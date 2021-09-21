@@ -396,22 +396,21 @@ sts_ctx_punch_dkey(struct sts_context *ctx, int oid_lo, const char *dkey_str,
 static void
 sts_ctx_do_scrub(struct sts_context *ctx)
 {
-	struct scrub_ctx s_ctx = {0};
+	uuid_copy(ctx->tsc_scrub_ctx.sc_pool_uuid, ctx->tsc_pool_uuid);
+	ctx->tsc_scrub_ctx.sc_vos_pool_hdl = ctx->tsc_poh;
+	ctx->tsc_scrub_ctx.sc_sleep_fn = NULL;
+	ctx->tsc_scrub_ctx.sc_yield_fn = ctx->tsc_yield_fn;
+	ctx->tsc_scrub_ctx.sc_sched_arg = ctx->tsc_sched_arg;
+	ctx->tsc_scrub_ctx.sc_cont_lookup_fn = ctx->tsc_get_cont_fn;
+	ctx->tsc_scrub_ctx.sc_drain_pool_tgt_fn = fake_target_drain;
+	ctx->tsc_scrub_ctx.sc_get_rank_fn = fake_get_rank;
+	ctx->tsc_scrub_ctx.sc_pool = &ctx->tsc_pool;
+	ctx->tsc_scrub_ctx.sc_dmi = &ctx->tsc_dmi;
+	ctx->tsc_scrub_ctx.sc_credits_left = 1;
+	ctx->tsc_scrub_ctx.sc_pool_evict_threshold = ctx->tsc_pool_evict_threshold;
 
-	uuid_copy(s_ctx.sc_pool_uuid, ctx->tsc_pool_uuid);
-	s_ctx.sc_vos_pool_hdl = ctx->tsc_poh;
-	s_ctx.sc_sleep_fn = NULL;
-	s_ctx.sc_yield_fn = ctx->tsc_yield_fn;
-	s_ctx.sc_sched_arg = ctx->tsc_sched_arg;
-	s_ctx.sc_cont_lookup_fn = ctx->tsc_get_cont_fn;
-	s_ctx.sc_drain_pool_tgt_fn = fake_target_drain;
-	s_ctx.sc_get_rank_fn = fake_get_rank;
-	s_ctx.sc_pool = &ctx->tsc_pool;
-	s_ctx.sc_dmi = &ctx->tsc_dmi;
-	s_ctx.sc_credits_left = 1;
-	s_ctx.sc_pool_evict_threshold = ctx->tsc_pool_evict_threshold;
-
-	assert_rc_equal(ctx->tsc_expected_rc, vos_scrub_pool(&s_ctx));
+	assert_rc_equal(ctx->tsc_expected_rc,
+			vos_scrub_pool(&ctx->tsc_scrub_ctx));
 }
 
 /**
@@ -759,6 +758,28 @@ drain_target(void **state)
 }
 
 static void
+num_credits_should_not_change_last_csum_calcs(void **state)
+{
+	struct sts_context *ctx = *state;
+
+	ctx->tsc_pool_evict_threshold = 0;
+
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey1", 1, false);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey2", 1, false);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey3", 1, false);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey4", 1, false);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey5", 1, false);
+	sts_ctx_update(ctx, 1, TEST_IOD_SINGLE, "dkey", "akey6", 1, false);
+
+	sts_ctx_do_scrub(ctx);
+	assert_int_equal(6, ctx->tsc_scrub_ctx.sc_pool_last_csum_calcs);
+
+	ctx->tsc_pool.sp_scrub_cred = 2;
+	sts_ctx_do_scrub(ctx);
+	assert_int_equal(6, ctx->tsc_scrub_ctx.sc_pool_last_csum_calcs);
+}
+
+static void
 no_drain_target(void **state)
 {
 	struct sts_context *ctx = *state;
@@ -876,6 +897,8 @@ static const struct CMUnitTest scrubbing_tests[] = {
 	   multiple_overlapping_extents),
 	TS("CSUM_SCRUBBING_13: Evict pool target when threshold is exceeded",
 	   drain_target),
+	   TS("CSUM_SCRUBBING_14: Credits work: ",
+	      num_credits_should_not_change_last_csum_calcs),
 };
 
 extern int run_scrubbing_sched_tests(void);
