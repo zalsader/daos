@@ -132,19 +132,55 @@ func PoolProperties() PoolPropertyMap {
 				Number:      drpc.PoolPropertyScrubFreq,
 				Description: "Checksum scrubbing frequency",
 				valueHandler: func(s string) (*PoolPropertyValue, error) {
+					var conv uint64 = 1 // Default unit is seconds
+
+					var unitMap = map[string]uint64 {
+						"s":  1,
+						"m":  60,
+						"h":  60 * 60,
+						"d":  60 * 60 * 24,
+						"w":  60 * 60 * 168,
+					}
+					for u, seconds := range unitMap {
+						if (strings.HasSuffix(s, u)) {
+							s = strings.TrimSuffix(s, u)
+							conv = seconds
+						}
+					}
+
 					rbErr := errors.Errorf("invalid Scrubbing Frequency value %s", s)
-					rsPct, err := strconv.ParseUint(strings.ReplaceAll(s, "%", ""), 10, 64)
+					v, err := strconv.ParseUint(s, 10, 64)
 					if err != nil {
 						return nil, rbErr
 					}
-					return &PoolPropertyValue{rsPct}, nil
+					v *= conv
+					return &PoolPropertyValue{v}, nil
 				},
+
 				valueStringer: func(v *PoolPropertyValue) string {
-					n, err := v.GetNumber()
+					freq_seconds, err := v.GetNumber()
+
 					if err != nil {
 						return "not set"
 					}
-					return fmt.Sprintf("%d", n)
+
+					var unit_suffix = []string{"w", "d", "h", "m", "s"}
+					var unit_conv = []uint64{60 * 60 * 168, 60 * 60 * 24, 60 * 60, 60, 1}
+					result := ""
+					for i, u := range unit_suffix {
+						seconds := unit_conv[i]
+						if freq_seconds >= unit_conv[i] {
+							if result != "" {
+								result += " "
+							}
+							result = fmt.Sprintf("%s%d%s", result, freq_seconds/seconds, u)
+							freq_seconds %= seconds
+						}
+					}
+					if result == "" {
+						result = fmt.Sprintf("%ds", freq_seconds)
+					}
+					return result
 				},
 				jsonNumeric: true,
 			},
@@ -154,19 +190,57 @@ func PoolProperties() PoolPropertyMap {
 				Number:      drpc.PoolPropertyScrubPad,
 				Description: "Checksum scrubbing padding",
 				valueHandler: func(s string) (*PoolPropertyValue, error) {
+					var conv uint64 = 1000 // Default units is seconds, but store as ms
+
+					var unitMap = map[string]uint64 {
+						"ms": 1,
+						"s":  1000,
+						"m":  60 * 1000,
+						"h":  60 * 60 * 1000,
+						"d":  60 * 60 * 24 * 1000,
+						"w":  60 * 60 * 168 * 1000,
+					}
+					for u, tt := range unitMap {
+						if (strings.HasSuffix(s, u)) {
+							conv = tt
+							s = strings.TrimSuffix(s, u)
+						}
+					}
+
 					rbErr := errors.Errorf("invalid Scrubbing Padding value %s", s)
-					rsPct, err := strconv.ParseUint(strings.ReplaceAll(s, "%", ""), 10, 64)
+					v, err := strconv.ParseUint(s, 10, 64)
 					if err != nil {
 						return nil, rbErr
 					}
-					return &PoolPropertyValue{rsPct}, nil
+					v *= conv
+					return &PoolPropertyValue{v}, nil
 				},
 				valueStringer: func(v *PoolPropertyValue) string {
-					n, err := v.GetNumber()
+					freq_ms, err := v.GetNumber()
+
+
 					if err != nil {
 						return "not set"
 					}
-					return fmt.Sprintf("%d", n)
+
+					var unit_suffix = []string{"w", "d", "h", "m", "s", "ms" }
+					var unit_conv = []uint64{60 * 60 * 168 * 1000, 60 * 60 * 24 * 1000, 60 * 60 * 1000, 60 * 1000, 1 * 1000, 1}
+					result := ""
+					for i, u := range unit_suffix {
+						seconds := unit_conv[i]
+						if freq_ms >= unit_conv[i] {
+							if result != "" {
+								result += " "
+							}
+							result = fmt.Sprintf("%s%d%s", result, freq_ms/seconds, u)
+							freq_ms %= seconds
+						}
+					}
+
+					if result == "" {
+						result = "0"
+					}
+					return result
 				},
 				jsonNumeric: true,
 			},
