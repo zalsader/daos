@@ -283,25 +283,24 @@ sc_yield_or_sleep(struct scrub_ctx *ctx)
 		else
 			sc_yield(ctx);
 	}
-
-//
-//	d_gettime(&now);
-//	diff = d_timediff(ctx->sc_pool_start_scrub, now);
-//
-//	if (diff.tv_sec < sc_freq(ctx)) {
-//		left_sec = sc_freq(ctx) - diff.tv_sec;
-//		sc_sleep(ctx, left_sec * 1000);
-//	} else if (sc_pad(ctx) > 0){
-//		sc_sleep(ctx, sc_pad(ctx));
-//	} else {
-//		sc_yield(ctx);
-//	}
 }
 
-static bool
+static inline bool
+sc_scrub_off(struct scrub_ctx *ctx)
+{
+	return sc_mode(ctx) == DAOS_SCRUB_MODE_OFF;
+}
+
+static inline bool
+sc_scrub_paused(struct scrub_ctx *ctx)
+{
+	return sc_mode(ctx) == DAOS_SCRUB_MODE_PAUSE;
+}
+
+static inline bool
 sc_scrub_enabled(struct scrub_ctx *ctx)
 {
-	return sc_mode(ctx) != DAOS_SCRUB_MODE_OFF;
+	return !sc_scrub_off(ctx) && !sc_scrub_paused(ctx);
 }
 
 static void
@@ -657,8 +656,25 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 	}
 
 	if (!sc_scrub_enabled(ctx)) {
-		C_TRACE("scrubbing is off now");
-		return SCRUB_POOL_OFF;
+		if (sc_scrub_paused(ctx)) {
+			uint32_t sleep_ms =
+				seconds_to_wait_while_disabled() * 1000;
+			C_TRACE("scrubbing is paused");
+
+			do { /* wait until it's been enabled again */
+				if (sc_cont_is_stopping(ctx))
+					return SCRUB_CONT_STOPPING;
+				if (sc_pool_is_stopping(ctx))
+					return 0;
+
+				sc_sleep(ctx, sleep_ms);
+			} while (!sc_scrub_enabled(ctx));
+			C_TRACE("scrubbing is resumed");
+		} else {
+			C_TRACE("scrubbing is off");
+
+			return SCRUB_POOL_OFF;
+		}
 	}
 
 	switch (type) {
@@ -870,6 +886,8 @@ vos_scrub_pool(struct scrub_ctx *ctx)
 			 NULL, cont_iter_scrub_cb, ctx, NULL);
 	d_tm_inc_counter(ctx->sc_metrics.scm_scrub_count, 1);
 	sc_pool_stop(ctx);
+	if (rc == SCRUB_POOL_OFF)
+		return 0;
 	if (rc == -DER_SHUTDOWN)
 		return rc; /* Don't try again if is shutting down. */
 	if (rc != 0) {

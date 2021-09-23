@@ -86,6 +86,7 @@ func LabelIsValid(label string) bool {
 
 const (
 	PoolScrubModeOff        = C.DAOS_SCRUB_MODE_OFF
+	PoolScrubModePause      = C.DAOS_SCRUB_MODE_PAUSE
 	PoolScrubModeWait       = C.DAOS_SCRUB_MODE_RUN
 	PoolScrubModeContinuous = C.DAOS_SCRUB_MODE_CONTINUOUS
 )
