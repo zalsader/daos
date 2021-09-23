@@ -897,8 +897,8 @@ static const struct CMUnitTest scrubbing_tests[] = {
 	   multiple_overlapping_extents),
 	TS("CSUM_SCRUBBING_13: Evict pool target when threshold is exceeded",
 	   drain_target),
-	   TS("CSUM_SCRUBBING_14: Credits work: ",
-	      num_credits_should_not_change_last_csum_calcs),
+	TS("CSUM_SCRUBBING_14: Credits work: ",
+	   num_credits_should_not_change_last_csum_calcs),
 };
 
 extern int run_scrubbing_sched_tests(void);

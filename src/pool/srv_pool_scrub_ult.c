@@ -274,8 +274,8 @@ scrub_iv_ent_update(struct ds_iv_entry *entry, struct ds_iv_key *key,
 	D_ERROR("Rank %d: Draining rank %d, target %d. Master rank is: %d", rank, src_iv->siv_rank,
 		src_iv->siv_target, src_iv->siv_master_rank);
 	/* [todo-ryon]: Not sure about this?? */
-	if (rank != src_iv->siv_master_rank)
-		return 0;
+//	if (rank != src_iv->siv_master_rank)
+//		return 0;
 
 	return drain_pool_ult(src_iv->siv_pool_uuid, src_iv->siv_rank,
 		       src_iv->siv_target);

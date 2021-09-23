@@ -192,17 +192,12 @@ func PoolProperties() PoolPropertyMap {
 				valueHandler: func(s string) (*PoolPropertyValue, error) {
 					var conv uint64 = 1000 // Default units is seconds, but store as ms
 
-					var unitMap = map[string]uint64 {
-						"ms": 1,
-						"s":  1000,
-						"m":  60 * 1000,
-						"h":  60 * 60 * 1000,
-						"d":  60 * 60 * 24 * 1000,
-						"w":  60 * 60 * 168 * 1000,
-					}
-					for u, tt := range unitMap {
+					var unit_suffix = []string{"ms", "s", "m", "h", "d", "w"}
+					var unit_conv = []uint64{1, 1 * 1000, 60 * 1000, 60 * 60 * 1000, 60 * 60 * 24 * 1000, 60 * 60 * 168 * 1000}
+
+					for i, u := range unit_suffix {
 						if (strings.HasSuffix(s, u)) {
-							conv = tt
+							conv = unit_conv[i]
 							s = strings.TrimSuffix(s, u)
 						}
 					}

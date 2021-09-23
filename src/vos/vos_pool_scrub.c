@@ -192,9 +192,6 @@ sc_yield_sleep_while_running(struct scrub_ctx *ctx)
 	uint64_t msec_between = 0;
 	struct timespec now;
 
-	/* must have a frequency or padding set */
-	D_ASSERT(sc_freq(ctx) > 0 || sc_pad(ctx) > 0); /* [todo-ryon]: make sure dmg prevents this? or something */
-
 	sc_credit_decrement(ctx);
 	if (ctx->sc_credits_left > 0)
 		return;
@@ -305,7 +302,6 @@ static bool
 sc_scrub_enabled(struct scrub_ctx *ctx)
 {
 	return sc_mode(ctx) != DAOS_SCRUB_MODE_OFF;
-//	return sc_mode(ctx) != DAOS_SCRUB_MODE_OFF && sc_freq(ctx) > 0;
 }
 
 static void
@@ -660,7 +656,7 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 		return SCRUB_CONT_STOPPING;
 	}
 
-	if (ctx->sc_pool->sp_scrub_mode == DAOS_SCRUB_MODE_OFF) {
+	if (!sc_scrub_enabled(ctx)) {
 		C_TRACE("scrubbing is off now");
 		return SCRUB_POOL_OFF;
 	}
@@ -672,6 +668,9 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 			memset(&ctx->sc_cur_oid, 0, sizeof(ctx->sc_cur_oid));
 		} else {
 			ctx->sc_cur_oid = entry->ie_oid;
+			/* reset dkey and akey */
+			memset(&ctx->sc_dkey, 0, sizeof(ctx->sc_dkey));
+			memset(&ctx->sc_iod, 0, sizeof(ctx->sc_iod));
 		}
 		break;
 	case VOS_ITER_DKEY:
@@ -680,6 +679,8 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 			memset(&ctx->sc_dkey, 0, sizeof(ctx->sc_dkey));
 		} else {
 			ctx->sc_dkey = param->ip_dkey;
+			/* reset akey */
+			memset(&ctx->sc_iod, 0, sizeof(ctx->sc_iod));
 		}
 		break;
 	case VOS_ITER_AKEY:
@@ -688,6 +689,7 @@ obj_iter_scrub_pre_cb(daos_handle_t ih, vos_iter_entry_t *entry,
 			memset(&ctx->sc_iod, 0, sizeof(ctx->sc_iod));
 		} else {
 			ctx->sc_iod.iod_name = param->ip_akey;
+			/* reset value */
 			sc_obj_value_reset(ctx);
 		}
 		break;
