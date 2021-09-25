@@ -752,6 +752,8 @@ sc_scrub_cont(struct scrub_ctx *ctx)
 
 	param.ip_hdl = sc_cont_hdl(ctx);
 	param.ip_epr.epr_hi = DAOS_EPOCH_MAX;
+	param.ip_epr.epr_lo = 0;
+	param.ip_epc_expr = VOS_IT_EPC_RE;
 	/*
 	 * FIXME: Improve iteration by only iterating over visible
 	 * recxs (set param.ip_flags = VOS_IT_RECX_VISIBLE). Will have to be
