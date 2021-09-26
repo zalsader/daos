@@ -46,6 +46,10 @@ struct crt_na_dict crt_na_dict[] = {
 		.nad_str	= "ofi+tcp;ofi_rxm",
 		.nad_port_bind	= true,
 	}, {
+		.nad_type	= CRT_NA_UCX,
+		.nad_str	= "ucx+rc_v,ud_v",
+		.nad_port_bind	= true,
+	}, {
 		.nad_str	= NULL,
 	}
 };
@@ -282,7 +286,6 @@ crt_hg_get_addr(hg_class_t *hg_class, char *addr_str, size_t *str_size)
 		D_ERROR("HG_Addr_self() failed, hg_ret: %d.\n", hg_ret);
 		D_GOTO(out, rc = -DER_HG);
 	}
-
 	hg_ret = HG_Addr_to_string(hg_class, addr_str, str_size, self_addr);
 	if (hg_ret != HG_SUCCESS) {
 		D_ERROR("HG_Addr_to_string() failed, hg_ret: %d.\n", hg_ret);
@@ -603,11 +606,13 @@ crt_hg_class_init(int provider, int idx, hg_class_t **ret_hg_class)
 		D_GOTO(out, rc = -DER_HG);
 	}
 
-	rc = crt_hg_get_addr(hg_class, addr_str, &str_size);
-	if (rc != 0) {
-		D_ERROR("crt_hg_get_addr() failed, rc: %d.\n", rc);
-		HG_Finalize(hg_class);
-		D_GOTO(out, rc = -DER_HG);
+	if (crt_is_service() || provider != CRT_NA_UCX) {
+		rc = crt_hg_get_addr(hg_class, addr_str, &str_size);
+		if (rc != 0) {
+			D_ERROR("crt_hg_get_addr() failed, rc: %d.\n", rc);
+			HG_Finalize(hg_class);
+			D_GOTO(out, rc = -DER_HG);
+		}
 	}
 
 	D_DEBUG(DB_NET, "New context(idx:%d), listen address: %s.\n",
