@@ -124,8 +124,8 @@ func PoolProperties() PoolPropertyMap {
 			values: map[string]uint64{
 				"off":        drpc.PoolScrubModeOff,
 				"pause":      drpc.PoolScrubModePause,
-				"run":        drpc.PoolScrubModeWait,
-				"continuous": drpc.PoolScrubModeContinuous,
+				"fix":        drpc.PoolScrubModeWait,
+				"dynamic": drpc.PoolScrubModeContinuous,
 			},
 		},
 		"scrub-freq": {
