@@ -1548,8 +1548,7 @@ obj_local_rw_internal(crt_rpc_t *rpc, struct obj_io_context *ioc,
 	}
 
 	if (rma) {
-		//bulk_bind = orw->orw_flags & ORF_BULK_BIND;
-		bulk_bind = false;
+		bulk_bind = orw->orw_flags & ORF_BULK_BIND;
 		rc = obj_bulk_transfer(rpc, bulk_op, bulk_bind,
 				       orw->orw_bulks.ca_arrays, offs,
 				       ioh, NULL, orw->orw_nr, NULL);
