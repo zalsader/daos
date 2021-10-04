@@ -549,6 +549,8 @@ sc_verify_obj_value(struct scrub_ctx *ctx, struct bio_iov *biov,
 				ctx->sc_pool_evict_threshold);
 			d_tm_inc_counter(ctx->sc_metrics.scm_corrupt_targets,
 					 1);
+			d_tm_set_counter(ctx->sc_metrics.scm_csum_calcs, 0);
+			d_tm_set_counter(ctx->sc_metrics.scm_last_csum_calcs, 0);
 			rc = sc_pool_drain(ctx);
 			if (rc != 0)
 				D_ERROR("Drain error: "DF_RC"\n", DP_RC(rc));
