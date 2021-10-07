@@ -46,7 +46,15 @@ struct crt_na_dict crt_na_dict[] = {
 		.nad_str	= "ofi+tcp;ofi_rxm",
 		.nad_port_bind	= true,
 	}, {
-		.nad_type	= CRT_NA_UCX,
+		.nad_type	= CRT_NA_UCX_RC,
+		.nad_str	= "ucx+rc_v",
+		.nad_port_bind	= true,
+	}, {
+		.nad_type	= CRT_NA_UCX_UD,
+		.nad_str	= "ucx+ud_v",
+		.nad_port_bind	= true,
+	}, {
+		.nad_type	= CRT_NA_UCX_RC_UD,
 		.nad_str	= "ucx+rc_v,ud_v",
 		.nad_port_bind	= true,
 	}, {
@@ -606,7 +614,8 @@ crt_hg_class_init(int provider, int idx, hg_class_t **ret_hg_class)
 		D_GOTO(out, rc = -DER_HG);
 	}
 
-	if (crt_is_service() || provider != CRT_NA_UCX) {
+	if (crt_is_service() || (provider != CRT_NA_UCX_RC &&
+		provider != CRT_NA_UCX_UD && provider != CRT_NA_UCX_RC_UD)) {
 		rc = crt_hg_get_addr(hg_class, addr_str, &str_size);
 		if (rc != 0) {
 			D_ERROR("crt_hg_get_addr() failed, rc: %d.\n", rc);

@@ -521,6 +521,8 @@ crtu_cli_start_basic(char *local_group_name, char *srv_group_name,
 
 	if (init_opt) {
 		rc = crt_init_opt(local_group_name, 0, init_opt);
+		if (opts.assert_on_error)
+			D_ASSERTF(rc == 0, "crt_init_opt() failed; rc=%d\n", rc);
 	} else {
 		rc = crt_init(local_group_name, 0);
 		if (opts.assert_on_error)

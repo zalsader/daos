@@ -40,7 +40,9 @@ enum crt_na_type {
 	CRT_NA_OFI_GNI		= 4,
 	CRT_NA_OFI_PSM2		= 5,
 	CRT_NA_OFI_TCP_RXM	= 6,
-	CRT_NA_UCX		= 7,
+	CRT_NA_UCX_RC		= 7,
+	CRT_NA_UCX_UD		= 8,
+	CRT_NA_UCX_RC_UD	= 9,
 
 	/* Note: This entry should be the last one in enum */
 	CRT_NA_OFI_COUNT,
