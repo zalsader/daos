@@ -66,10 +66,11 @@ struct crt_na_dict crt_na_dict[] = {
 		.nad_str	= "ucx+ud",
 		.nad_port_bind	= true,
 	}, {
-		.nad_type	= CRT_NA_UCX_RC_UD_X,
-		.nad_str	= "ucx+rc_x,ud_x",
+		.nad_type	= CRT_NA_UCX_RC_UD_O,
+		.nad_str	= "ucx+rc,ud",
 		.nad_port_bind	= true,
 	}, {
+		.nad_type	= CRT_NA_UCX_RC_X,
 		.nad_str	= "ucx+rc_x",
 		.nad_port_bind	= true,
 	}, {
