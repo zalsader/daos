@@ -58,6 +58,29 @@ struct crt_na_dict crt_na_dict[] = {
 		.nad_str	= "ucx+rc_v,ud_v",
 		.nad_port_bind	= true,
 	}, {
+		.nad_type	= CRT_NA_UCX_RC_O,
+		.nad_str	= "ucx+rc",
+		.nad_port_bind	= true,
+	}, {
+		.nad_type	= CRT_NA_UCX_UD_O,
+		.nad_str	= "ucx+ud",
+		.nad_port_bind	= true,
+	}, {
+		.nad_type	= CRT_NA_UCX_RC_UD_X,
+		.nad_str	= "ucx+rc_x,ud_x",
+		.nad_port_bind	= true,
+	}, {
+		.nad_str	= "ucx+rc_x",
+		.nad_port_bind	= true,
+	}, {
+		.nad_type	= CRT_NA_UCX_UD_X,
+		.nad_str	= "ucx+ud_x",
+		.nad_port_bind	= true,
+	}, {
+		.nad_type	= CRT_NA_UCX_RC_UD_X,
+		.nad_str	= "ucx+rc_x,ud_x",
+		.nad_port_bind	= true,
+	}, {
 		.nad_str	= NULL,
 	}
 };
@@ -615,7 +638,11 @@ crt_hg_class_init(int provider, int idx, hg_class_t **ret_hg_class)
 	}
 
 	if (crt_is_service() || (provider != CRT_NA_UCX_RC &&
-		provider != CRT_NA_UCX_UD && provider != CRT_NA_UCX_RC_UD)) {
+		provider != CRT_NA_UCX_UD && provider != CRT_NA_UCX_RC_UD &&
+		provider != CRT_NA_UCX_RC_O && provider != CRT_NA_UCX_UD_O &&
+		provider != CRT_NA_UCX_RC_UD_O &&
+		provider != CRT_NA_UCX_RC_X && provider != CRT_NA_UCX_UD_X &&
+		provider != CRT_NA_UCX_RC_UD_X)) {
 		rc = crt_hg_get_addr(hg_class, addr_str, &str_size);
 		if (rc != 0) {
 			D_ERROR("crt_hg_get_addr() failed, rc: %d.\n", rc);
