@@ -206,6 +206,9 @@ func (p *Provider) FormatScm(force bool) error {
 
 // PrepareBdevs attempts to configure NVMe devices to be usable by DAOS.
 func (p *Provider) PrepareBdevs(req BdevPrepareRequest) (*BdevPrepareResponse, error) {
+	// Make prepare a noop on endeavour.
+	return new(BdevPrepareResponse), nil
+
 	resp, err := p.bdev.Prepare(req)
 
 	p.Lock()
