@@ -702,7 +702,7 @@ crt_hg_class_init(int provider, int idx, hg_class_t **ret_hg_class)
 		init_info.na_init_info.max_unexpected_size = prov_data->cpg_max_unexp_size;
 
 	init_info.request_post_incr = 0;
-	D_PRINT("info string: %s\n", info_string);
+	//D_PRINT("info string: %s\n", info_string);
 	hg_class = HG_Init_opt(info_string, crt_is_service(), &init_info);
 	if (hg_class == NULL) {
 		D_ERROR("Could not initialize HG class.\n");
@@ -723,8 +723,8 @@ crt_hg_class_init(int provider, int idx, hg_class_t **ret_hg_class)
 		}
 	}
 
-	D_PRINT("New context(idx:%d), listen address: %s.\n",
-		idx, addr_str);
+	//D_PRINT("New context(idx:%d), listen address: %s.\n",
+		//idx, addr_str);
 	D_DEBUG(DB_NET, "New context(idx:%d), listen address: %s.\n",
 		idx, addr_str);
 
@@ -763,7 +763,7 @@ crt_hg_ctx_init(struct crt_hg_context *hg_ctx, int provider, int idx)
 
 	hg_ctx->chc_provider = provider;
 	sep_mode = crt_provider_is_sep(provider);
-	D_PRINT("SEP mode: %d\n", sep_mode == true ? 1 : 0);
+	//D_PRINT("SEP mode: %d\n", sep_mode == true ? 1 : 0);
 
 	/* In SEP mode all contexts share same hg_class*/
 	if (sep_mode) {
@@ -779,7 +779,7 @@ crt_hg_ctx_init(struct crt_hg_context *hg_ctx, int provider, int idx)
 		}
 	} else {
 		rc = crt_hg_class_init(provider, idx, &hg_class);
-		D_PRINT("hg class init: %d\n", rc);
+	//	D_PRINT("hg class init: %d\n", rc);
 		if (rc != 0)
 			D_GOTO(out, rc);
 	}
