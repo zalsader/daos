@@ -877,7 +877,10 @@ daos_recx_merge(daos_recx_t *src, daos_recx_t *dst)
 #define DAOS_NVME_MEM_PRIMARY	0
 
 /** Size of (un)expected Mercury buffers */
-#define DAOS_RPC_SIZE  (20480) /* 20KiB */
+//#define DAOS_RPC_SIZE  (20480) /* 20KiB */
+#define DAOS_RPC_SIZE  (65536) /* 20KiB */
+
+
 /**
  * Threshold for inline vs bulk transfer
  * If the data size is smaller or equal to this limit, it will be transferred
