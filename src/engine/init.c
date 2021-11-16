@@ -315,10 +315,12 @@ dss_topo_init()
 
 	/* if no NUMA node was specified, or NUMA data unavailable */
 	/* fall back to the legacy core allocation algorithm */
+	D_PRINT("falling back: dss_numa_node: %d, numa_node_nr: %d\n", dss_numa_node, numa_node_nr);
 	if (dss_numa_node == -1 || numa_node_nr <= 0) {
 		D_PRINT("Using legacy core allocation algorithm\n");
 		dss_tgt_nr = dss_tgt_nr_get(dss_core_nr, nr_threads,
 					    tgt_oversub);
+                D_PRINT("dss_tgt_nr: %d\n", dss_tgt_nr); 
 
 		if (dss_core_offset < 0 || dss_core_offset >= dss_core_nr) {
 			D_ERROR("invalid dss_core_offset %d "
@@ -920,6 +922,7 @@ parse(int argc, char **argv)
 			break;
 		case 'f':
 			dss_core_offset = atoi(optarg);
+			D_PRINT("dss_core_offset: %d\n", dss_core_offset);
 			break;
 		case 'g':
 			if (strnlen(optarg, DAOS_SYS_NAME_MAX + 1) >
@@ -942,6 +945,7 @@ parse(int argc, char **argv)
 			break;
 		case 'p':
 			dss_numa_node = atoi(optarg);
+			D_PRINT("dss_numa_node: %d\n", dss_numa_node);
 			break;
 		case 'i':
 			dss_nvme_shm_id = atoi(optarg);

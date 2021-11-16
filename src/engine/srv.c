@@ -326,6 +326,9 @@ dss_srv_handler(void *arg)
 	/**
 	 * Set cpu affinity
 	 */
+	char buf[256];
+	hwloc_bitmap_snprintf(buf, 256, dx->dx_cpuset);
+	D_PRINT("cpuset: %s, thread_id: %d, target_id: %d\n", buf, dx->dx_xs_id, dx->dx_tgt_id);
 	rc = hwloc_set_cpubind(dss_topo, dx->dx_cpuset, HWLOC_CPUBIND_THREAD);
 	if (rc) {
 		D_ERROR("failed to set cpu affinity: %d\n", errno);
