@@ -16,7 +16,7 @@
 #include "rpc.h"
 #include "srv_internal.h"
 
-static inline int
+static inline bool
 map_ranks_include(enum map_ranks_class class, int status)
 {
 	switch (class) {
@@ -32,7 +32,7 @@ map_ranks_include(enum map_ranks_class class, int status)
 		D_ASSERTF(0, "%d\n", class);
 	}
 
-	return 0;
+	return false;
 }
 
 /* Build a rank list of targets with certain status. */
@@ -155,6 +155,23 @@ map_ranks_merge(d_rank_list_t *src_ranks, d_rank_list_t *ranks_merge)
 free:
 	D_FREE(indexes);
 	return rc;
+}
+
+/**
+ * Is \a rank considered up in \a map? Note that when \a rank does not exist in
+ * \a map, false is returned.
+ */
+bool
+ds_pool_map_rank_up(struct pool_map *map, d_rank_t rank)
+{
+	struct pool_domain     *node;
+	int			rc;
+
+	rc = pool_map_find_nodes(map, rank, &node);
+	if (rc == 0)
+		return false;
+	D_ASSERTF(rc == 1, "%d\n", rc);
+	return map_ranks_include(MAP_RANKS_UP, node->do_comp.co_status);
 }
 
 int

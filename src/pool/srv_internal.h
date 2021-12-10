@@ -152,6 +152,7 @@ void ds_pool_tgt_query_map_handler(crt_rpc_t *rpc);
 /*
  * srv_util.c
  */
+bool ds_pool_map_rank_up(struct pool_map *map, d_rank_t rank);
 int ds_pool_check_failed_replicas(struct pool_map *map, d_rank_list_t *replicas,
 				  d_rank_list_t *failed, d_rank_list_t *alt);
 int ds_pool_transfer_map_buf(struct pool_buf *map_buf, uint32_t map_version,

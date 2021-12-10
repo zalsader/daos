@@ -811,6 +811,9 @@ queue_event(struct pool_svc *svc, d_rank_t rank, uint64_t incarnation, enum crt_
 	struct pool_svc_events *events = &svc->ps_events;
 	struct pool_svc_event  *event;
 
+	if (src == CRT_EVS_GRPMOD && type == CRT_EVT_ALIVE)
+		return 0;
+
 	D_ALLOC_PTR(event);
 	if (event == NULL)
 		return -DER_NOMEM;
@@ -848,13 +851,10 @@ static int pool_svc_exclude_rank(struct pool_svc *svc, d_rank_t rank);
 static void
 handle_event(struct pool_svc *svc, struct pool_svc_event *event)
 {
-	daos_prop_t		prop = {0};
-	struct daos_prop_entry *entry;
-	int			rc;
+	int rc;
 
-	/* Only used for exclude the rank for the moment */
 	if ((event->psv_src != CRT_EVS_GRPMOD && event->psv_src != CRT_EVS_SWIM) ||
-	    event->psv_type != CRT_EVT_DEAD || pool_disable_exclude) {
+	    (event->psv_type == CRT_EVT_DEAD && pool_disable_exclude)) {
 		D_DEBUG(DB_MD, "ignore event: "DF_PS_EVENT" exclude=%d\n", DP_PS_EVENT(event),
 			pool_disable_exclude);
 		goto out;
@@ -863,30 +863,68 @@ handle_event(struct pool_svc *svc, struct pool_svc_event *event)
 	D_DEBUG(DB_MD, DF_UUID": handling event: "DF_PS_EVENT"\n", DP_UUID(svc->ps_uuid),
 		DP_PS_EVENT(event));
 
-	rc = ds_pool_iv_prop_fetch(svc->ps_pool, &prop);
-	if (rc != 0) {
-		D_ERROR(DF_UUID": failed to fetch properties: "DF_RC"\n", DP_UUID(svc->ps_uuid),
-			DP_RC(rc));
-		goto out;
-	}
+	if (event->psv_type == CRT_EVT_ALIVE) {
+		/*
+		 * CRT_EVT_ALIVE events from CRT_EVS_GRPMOD have been discarded
+		 * in queue_event.
+		 */
+		D_ASSERTF(event->psv_src == CRT_EVS_SWIM, "%d\n", event->psv_src);
 
-	entry = daos_prop_entry_get(&prop, DAOS_PROP_PO_SELF_HEAL);
-	D_ASSERT(entry != NULL);
-	if (!(entry->dpe_val & DAOS_SELF_HEAL_AUTO_EXCLUDE)) {
-		D_DEBUG(DB_MD, DF_UUID": self healing is disabled\n", DP_UUID(svc->ps_uuid));
-		goto out_prop;
-	}
+		/*
+		 * Check if the rank is up in the pool map. Note that taking
+		 * svc->ps_lock may be unnecessary for our current purpose
+		 * below. Similarly, we also don't care if a new leader has
+		 * stepped up elsewhere. If in the future we add automatic
+		 * reintegration below, for instance, we may need to not only
+		 * take svc->ps_lock, but also employ an RDB TX by the book.
+		 */
+		ABT_rwlock_rdlock(svc->ps_lock);
+		ABT_rwlock_rdlock(svc->ps_pool->sp_lock);
+		rc = ds_pool_map_rank_up(svc->ps_pool->sp_map, event->psv_rank);
+		ABT_rwlock_unlock(svc->ps_pool->sp_lock);
+		ABT_rwlock_unlock(svc->ps_lock);
+		if (!rc)
+			goto out;
 
-	rc = pool_svc_exclude_rank(svc, event->psv_rank);
-	if (rc != 0) {
-		D_ERROR(DF_UUID": failed to exclude rank %u: "DF_RC"\n", DP_UUID(svc->ps_uuid),
-			event->psv_rank, DP_RC(rc));
-		goto out_prop;
-	}
+		/*
+		 * The rank is up in the pool map. Request a pool map
+		 * distribution just in case the rank does not have a copy.
+		 */
+		ds_rsvc_request_map_dist(&svc->ps_rsvc);
+		D_DEBUG(DB_MD, DF_UUID": requested map dist for rank %u\n", DP_UUID(svc->ps_uuid),
+			event->psv_rank);
+	} else { /* CRT_EVT_DEAD */
+		daos_prop_t		prop = {0};
+		struct daos_prop_entry *entry;
 
-	D_DEBUG(DB_MD, DF_UUID": excluded rank %u\n", DP_UUID(svc->ps_uuid), event->psv_rank);
+		rc = ds_pool_iv_prop_fetch(svc->ps_pool, &prop);
+		if (rc != 0) {
+			D_ERROR(DF_UUID": failed to fetch properties: "DF_RC"\n",
+				DP_UUID(svc->ps_uuid), DP_RC(rc));
+			goto out;
+		}
+
+		entry = daos_prop_entry_get(&prop, DAOS_PROP_PO_SELF_HEAL);
+		D_ASSERT(entry != NULL);
+		if (!(entry->dpe_val & DAOS_SELF_HEAL_AUTO_EXCLUDE)) {
+			D_DEBUG(DB_MD, DF_UUID": self healing is disabled\n",
+				DP_UUID(svc->ps_uuid));
+			goto out_prop;
+		}
+
+		rc = pool_svc_exclude_rank(svc, event->psv_rank);
+		if (rc != 0) {
+			D_ERROR(DF_UUID": failed to exclude rank %u: "DF_RC"\n",
+				DP_UUID(svc->ps_uuid), event->psv_rank, DP_RC(rc));
+			goto out_prop;
+		}
+
+		D_DEBUG(DB_MD, DF_UUID": excluded rank %u\n", DP_UUID(svc->ps_uuid),
+			event->psv_rank);
 out_prop:
-	daos_prop_fini(&prop);
+		daos_prop_fini(&prop);
+	}
+
 out:
 	return;
 }
@@ -896,6 +934,7 @@ events_handler(void *arg)
 {
 	struct pool_svc	       *svc = arg;
 	struct pool_svc_events *events = &svc->ps_events;
+	int			n = 0;
 
 	D_DEBUG(DB_MD, DF_UUID": starting\n", DP_UUID(svc->ps_uuid));
 
@@ -925,7 +964,11 @@ events_handler(void *arg)
 		handle_event(svc, event);
 
 		D_FREE(event);
-		ABT_thread_yield();
+		n++;
+		if (n == 32) {
+			n = 0;
+			ABT_thread_yield();
+		}
 	}
 
 	D_DEBUG(DB_MD, DF_UUID": stopping\n", DP_UUID(svc->ps_uuid));
