@@ -369,7 +369,6 @@ obj_layout_create(struct dc_object *obj, bool refresh)
 		obj_shard->do_target_id = layout->ol_shards[i].po_target;
 		obj_shard->do_fseq = layout->ol_shards[i].po_fseq;
 		obj_shard->do_rebuilding = layout->ol_shards[i].po_rebuilding;
-		obj_shard->do_reintegrating = layout->ol_shards[i].po_reintegrating;
 	}
 out:
 	if (layout)
@@ -976,12 +975,6 @@ shard_open:
 		if (obj_op_is_ec_fetch(obj_auxi) && obj_shard->do_rebuilding) {
 			ec_degrade = true;
 			obj_shard_close(obj_shard);
-		}
-		if (obj_auxi->opc == DAOS_OBJ_RPC_UPDATE && obj_shard->do_reintegrating) {
-			D_ERROR(DF_OID" shard is being reintegrated: %d\n",
-				DP_OID(obj->cob_md.omd_id), -DER_IO);
-			obj_shard_close(obj_shard);
-			D_GOTO(out, rc = -DER_IO);
 		}
 	} else {
 		if (rc == -DER_NONEXIST) {

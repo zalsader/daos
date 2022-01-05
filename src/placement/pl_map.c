@@ -282,14 +282,12 @@ obj_layout_dump(daos_obj_id_t oid, struct pl_obj_layout *layout)
 		DP_OID(oid), layout->ol_ver);
 
 	for (i = 0; i < layout->ol_nr; i++)
-		D_DEBUG(DB_PL, "%d: shard_id %d, tgt_id %d, f_seq %d, %s %s\n",
+		D_DEBUG(DB_PL, "%d: shard_id %d, tgt_id %d, f_seq %d, %s\n",
 			i, layout->ol_shards[i].po_shard,
 			layout->ol_shards[i].po_target,
 			layout->ol_shards[i].po_fseq,
 			layout->ol_shards[i].po_rebuilding ?
-			"rebuilding" : "healthy",
-			layout->ol_shards[i].po_reintegrating ?
-			"reintegrating" : "healthy");
+			"rebuilding" : "healthy");
 }
 
 /**

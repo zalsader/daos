@@ -29,10 +29,6 @@
 
 #define DATA_SIZE	(1048576 * 2 + 512)
 
-#if 0
-/* Disable inflight IO due to DAOS-8775 for 2.0, and re-enable it until inflight I/O
- * during reintegrated are supported.
- */
 static int
 reintegrate_inflight_io(void *data)
 {
@@ -66,7 +62,6 @@ reintegrate_inflight_io(void *data)
 				      NULL);
 	return 0;
 }
-#endif
 
 static void
 reintegrate_with_inflight_io(test_arg_t *arg, daos_obj_id_t *oid,
@@ -85,10 +80,9 @@ reintegrate_with_inflight_io(test_arg_t *arg, daos_obj_id_t *oid,
 					 0, arg->myrank);
 	inflight_oid = dts_oid_set_rank(inflight_oid, rank);
 
-#if 0
 	arg->rebuild_cb = reintegrate_inflight_io;
 	arg->rebuild_cb_arg = &inflight_oid;
-#endif
+
 	/* To make sure the IO will be done before reintegration is done */
 	if (arg->myrank == 0)
 		daos_debug_set_params(arg->group, -1, DMG_KEY_FAIL_LOC,

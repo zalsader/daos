@@ -66,7 +66,6 @@ struct dc_obj_shard {
 #define do_target_id	do_pl_shard.po_target
 #define do_fseq		do_pl_shard.po_fseq
 #define do_rebuilding	do_pl_shard.po_rebuilding
-#define do_reintegrating do_pl_shard.po_reintegrating
 
 /** client object layout */
 struct dc_obj_layout {
@@ -562,6 +561,7 @@ obj_retry_error(int err)
 	       err == -DER_INPROGRESS || err == -DER_GRPVER ||
 	       err == -DER_EXCLUDED || err == -DER_CSUM ||
 	       err == -DER_TX_BUSY || err == -DER_TX_UNCERTAIN ||
+	       err == -DER_UPDATE_AGAIN ||
 	       daos_crt_network_error(err);
 }
 
