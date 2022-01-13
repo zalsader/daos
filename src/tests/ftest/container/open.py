@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 '''
-  (C) Copyright 2018-2021 Intel Corporation.
+  (C) Copyright 2018-2022 Intel Corporation.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 '''
@@ -52,7 +52,7 @@ class OpenContainerTest(TestWithServers):
         poh_state = self.params.get("poh", "/run/uuid_poh/*/")
 
         expected_result = RESULT_PASS
-        if uuid_state == RESULT_FAIL or poh_state == RESULT_FAIL:
+        if RESULT_FAIL in (uuid_state, poh_state):
             expected_result = RESULT_FAIL
 
         # Derive the test case number from the PASS/FAIL-PASS/FAIL combination
@@ -94,7 +94,7 @@ class OpenContainerTest(TestWithServers):
         container_uuids = []
         for _ in range(2):
             self.pool.append(self.get_pool())
-            self.container.append(self.get_container(pool=self.pool[-1]))
+            self.container.append(self.create_container(pool=self.pool[-1]))
             container_uuids.append(uuid.UUID(self.container[-1].uuid))
 
         # Decide which pool handle and container UUID to use. The PASS/FAIL

@@ -136,14 +136,14 @@ class EvictTests(TestWithServers):
             # Create a pool over all of the hosts, check the pool file, and connect.
             pools.append(self.connected_pool(hostlist=all_hosts, targets=all_ranks))
             # Create a container and write data to it.
-            containers.append(self.get_container(pool=pools[-1]))
+            containers.append(self.create_container(pool=pools[-1]))
             containers[-1].write_objects()
 
         # Create a pool over the half of the hosts, check the pool file, and connect.
         pools.append(self.connected_pool(
             hostlist=half_hosts_with, targets=half_ranks_with))
         # Create a container and write data to it.
-        containers.append(self.get_container(pool=pools[-1]))
+        containers.append(self.create_container(pool=pools[-1]))
         containers[-1].write_objects()
 
         # Step 5. Verify that the third pool's file doesn't exist on the half of the
