@@ -202,6 +202,8 @@ func TestBackend_Scan(t *testing.T) {
 			if diff := cmp.Diff(tc.expResp, gotResp, defCmpOpts()...); diff != "" {
 				t.Fatalf("\nunexpected output (-want, +got):\n%s\n", diff)
 			}
+			common.AssertEqual(t, 1, len(mei.InitCalls), "unexpected number of spdk init calls")
+			common.AssertEqual(t, 1, len(mei.FiniCalls), "unexpected number of spdk fini calls")
 		})
 	}
 }
@@ -542,6 +544,8 @@ func TestBackend_Format(t *testing.T) {
 				if diff := cmp.Diff(tc.expInitOpts, mei.CallOpts, defCmpOpts()...); diff != "" {
 					t.Fatalf("\nunexpected output (-want, +got):\n%s\n", diff)
 				}
+				common.AssertEqual(t, 1, len(mei.FiniCalls),
+					"unexpected number of spdk fini calls")
 			}
 		})
 	}
