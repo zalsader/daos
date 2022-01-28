@@ -1,0 +1,8 @@
+daily: "daily daily_regression"
+daily_regression: "daily daily_regression"
+weekly: "weekly weekly_regression"
+weekly_regression: "weekly weekly_regression"
+ci_vm: "ci_vm -hw vm"
+ci_hw_small: "ci_hw_small hw,small"
+ci_hw_medium: "ci_hw_medium hw,medium"
+ci_hw_large: "ci_hw_large hw,large"

@@ -25,6 +25,8 @@ import yaml
 from defusedxml import minidom
 import defusedxml.ElementTree as ET
 
+from aliases import TagSet
+
 # Graft some functions from xml.etree into defusedxml etree.
 ET.Element = Element
 ET.SubElement = SubElement
@@ -574,6 +576,13 @@ def find_values(obj, keys, key=None, val_type=list):
 
     return matches
 
+def get_alias(alias):
+    if get_alias.aliases is None:
+        import yaml
+        with open("aliases.yaml") as a:
+            get_alias.aliases = yaml.safe_load(a)
+    return get_alias.aliases.get(alias, alias)
+get_alias.aliases = None
 
 def get_test_list(tags):
     """Generate a list of tests and avocado tag filter from a list of tags.
@@ -598,6 +607,7 @@ def get_test_list(tags):
             # then and faults are enabled
             pass
     for tag in tags:
+        print(f'tag={tag}')
         if os.path.isfile(tag):
             # Assume an existing file is a test and just add it to the list
             test_list.append(tag)
@@ -606,9 +616,14 @@ def get_test_list(tags):
                 test_tags.append(fault_filter)
         else:
             # Otherwise it is assumed that this is a tag
+            tag_set = TagSet(tag)
             if faults_disabled:
-                tag = ",".join((tag, "-faults"))
-            test_tags.append("--filter-by-tags={}".format(tag))
+                tag_set *= TagSet("-faults")
+            for _set in tag_set.unalias(get_alias).simplified().to_list():
+                test_tags.append("--filter-by-tags={}".format(_set))
+            # if faults_disabled:
+            #     tag = ",".join((tag, "-faults"))
+            # test_tags.append("--filter-by-tags={}".format(tag))
 
     # Update the list of tests with any test that match the specified tags.
     # Exclude any specified tests that do not match the specified tags.  If no
