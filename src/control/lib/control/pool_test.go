@@ -711,6 +711,10 @@ func TestPoolGetProp(t *testing.T) {
 							Number: propWithVal("policy", "").Number,
 							Value:  &mgmtpb.PoolProperty_Strval{"type=io_size"},
 						},
+						{
+							Number: propWithVal("perf_domain", "").Number,
+							Value:  &mgmtpb.PoolProperty_Strval{"bar"},
+						},
 					},
 				}),
 			},
@@ -721,6 +725,7 @@ func TestPoolGetProp(t *testing.T) {
 				propWithVal("ec_cell_sz", "4096"),
 				propWithVal("ec_pda", "1"),
 				propWithVal("label", "foo"),
+				propWithVal("perf_domain", "bar"),
 				propWithVal("policy", "type=io_size"),
 				propWithVal("reclaim", "disabled"),
 				propWithVal("rf", "1"),

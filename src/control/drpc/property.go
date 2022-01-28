@@ -49,6 +49,8 @@ const (
 	PoolPropertyRPPda = C.DAOS_PROP_PO_RP_PDA
 	// PoolPropertyPolicy is the tiering policy set for a pool
 	PoolPropertyPolicy = C.DAOS_PROP_PO_POLICY
+	//PoolPropertyPerfDomain is Performance domain
+	PoolPropertyPerfDomain = C.DAOS_PROP_PO_PERF_DOMAIN
 )
 
 const (
@@ -127,4 +129,11 @@ func PoolPolicyIsValid(polStr string) bool {
 	defer C.free(unsafe.Pointer(cStr))
 
 	return bool(C.daos_policy_try_parse(cStr, &polDesc))
+}
+
+func PerfDomainIsValid(perfdomain string) bool {
+	cPerfDomain := C.CString(perfdomain)
+	defer C.free(unsafe.Pointer(cPerfDomain))
+
+	return bool(C.daos_perf_domain_is_valid(cPerfDomain))
 }

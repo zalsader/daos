@@ -199,6 +199,18 @@ func PoolProperties() PoolPropertyMap {
 				},
 			},
 		},
+		"perf_domain": {
+			Property: PoolProperty{
+				Number:      drpc.PoolPropertyPerfDomain,
+				Description: "Pool performance domain",
+				valueHandler: func(s string) (*PoolPropertyValue, error) {
+					if !drpc.PerfDomainIsValid(s) {
+						return nil, errors.Errorf("invalid perf domain %q", s)
+					}
+					return &PoolPropertyValue{s}, nil
+				},
+			},
+		},
 	}
 }
 

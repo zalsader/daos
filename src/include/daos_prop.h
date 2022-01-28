@@ -89,6 +89,10 @@ enum daos_pool_props {
 	 * of replicated object.
 	 */
 	DAOS_PROP_PO_RP_PDA,
+	/**
+	 * The pool performance domain
+	 */
+	DAOS_PROP_PO_PERF_DOMAIN,
 	DAOS_PROP_PO_MAX,
 };
 
@@ -129,6 +133,11 @@ daos_rf_is_valid(unsigned long long rf)
  * object to different PDs.
  */
 #define DAOS_PROP_PO_EC_PDA_DEFAULT	1
+
+/**
+ * default performance domain is root
+ */
+#define DAOS_PROP_PO_PERF_DOMAIN_DEFAULT "root"
 
 /**
  * Number of pool property types
@@ -497,6 +506,16 @@ daos_label_is_valid(const char *label)
 
 /** max length of the policy string */
 #define DAOS_PROP_POLICYSTR_MAX_LEN	(127)
+
+/**
+ * Check if DAOS pool performance domain string is valid, string
+ * has same requirement as label.
+ */
+static inline bool
+daos_perf_domain_is_valid(const char *perf_domain)
+{
+	return daos_label_is_valid(perf_domain);
+}
 
 /** daos properties, for pool or container */
 typedef struct {
