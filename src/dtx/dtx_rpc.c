@@ -79,7 +79,6 @@ struct dtx_req_rec {
 	uint32_t			 drr_tag; /* The VOS ID */
 	int				 drr_count; /* DTX count */
 	int				 drr_result; /* The RPC result */
-	uint32_t			 drr_comp:1;
 	struct dtx_id			*drr_dti; /* The DTX array */
 	struct dtx_share_peer		**drr_cb_args; /* Used by dtx_req_cb. */
 };
@@ -119,8 +118,6 @@ dtx_req_cb(const struct crt_cb_info *cb_info)
 	struct dtx_out		*dout;
 	int			 rc = cb_info->cci_rc;
 	int			 i;
-
-	D_ASSERT(drr->drr_comp == 0);
 
 	if (rc != 0)
 		goto out;
@@ -209,7 +206,6 @@ dtx_req_cb(const struct crt_cb_info *cb_info)
 	}
 
 out:
-	drr->drr_comp = 1;
 	drr->drr_result = rc;
 	rc = ABT_future_set(dra->dra_future, drr);
 	D_ASSERTF(rc == ABT_SUCCESS,
@@ -255,8 +251,7 @@ dtx_req_send(struct dtx_req_rec *drr, daos_epoch_t epoch)
 		drr->drr_tag, req, dra->dra_future,
 		din != NULL ? din->di_epoch : 0, rc);
 
-	if (rc != 0 && drr->drr_comp == 0) {
-		drr->drr_comp = 1;
+	if (rc != 0) {
 		drr->drr_result = rc;
 		ABT_future_set(dra->dra_future, drr);
 	}
@@ -425,7 +420,6 @@ dtx_cf_rec_alloc(struct btr_instance *tins, d_iov_t *key_iov,
 	drr->drr_rank = dcrb->dcrb_rank;
 	drr->drr_tag = dcrb->dcrb_tag;
 	drr->drr_count = 1;
-	drr->drr_comp = 0;
 	drr->drr_dti[0] = *dcrb->dcrb_dti;
 	d_list_add_tail(&drr->drr_link, dcrb->dcrb_head);
 	++(*dcrb->dcrb_length);
