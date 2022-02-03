@@ -378,7 +378,7 @@ Verify if you're using Infiniband for `fabric_iface`: in the server config. The 
 	$ daos pool list-cont --pool=$DAOS_POOL
 	bc4fe707-7470-4b7d-83bf-face75cc98fc
 
-## dmg pool create failed due to no space
+### dmg pool create failed due to no space
 
 	$ dmg pool create --size=50G mypool
 	Creating DAOS pool with automatic storage allocation: 50 GB NVMe + 6.00% SCM
@@ -419,9 +419,45 @@ Verify if you're using Infiniband for `fabric_iface`: in the server config. The 
 In case of PMEM device restored to healthy state, the ext4 filesystem
 created on each PMEM devices may need to verified and repaired if needed.
 
-* **Make sure that PMEM is not in use and not mounted while doing check or repair.**
+### **Make sure that PMEM is not in use and not mounted while doing check or repair.**
 
-## e2fsck
+#### Use dmg command to stop the daos engines.
+
+	# dmg -o test_daos_dmg.yaml system stop
+	Rank  Operation Result
+	----  --------- ------
+	[0-1] stop      OK
+
+#### Stop the daos_server on the node where PCMEM checkking is required.
+
+	#systemctl stop daos_server.service
+
+#### DAOS PCMEM is still mounted so unmount the daos mountpoint.
+
+	 # df
+	Filesystem                    1K-blocks       Used  Available Use% Mounted on
+	devtmpfs                           4096          0       4096   0% /dev
+	tmpfs                          97577660          0   97577660   0% /dev/shm
+	tmpfs                          39031068      10588   39020480   1% /run
+	tmpfs                              4096          0       4096   0% /sys/fs/cgroup
+	/dev/sda5                      38141328    6117252   30056872  17% /
+	/dev/sda7                      28513060      45128   26996496   1% /var/tmp
+	wolf-1:/export/home/samirrav 6289369088 5927896416  361472672  95% /home/samirrav
+	/dev/pmem1                   3107622576     131116 3107475076   1% /mnt/daos1
+	/dev/pmem0                   3107622576     131172 3107475020   1% /mnt/daos0
+	# umount /mnt/daos*
+	# df
+	Filesystem                    1K-blocks       Used Available Use% Mounted on
+	devtmpfs                           4096          0      4096   0% /dev
+	tmpfs                          97577664          0  97577664   0% /dev/shm
+	tmpfs                          39031068      10588  39020480   1% /run
+	tmpfs                              4096          0      4096   0% /sys/fs/cgroup
+	/dev/sda5                      38141328    6120656  30053468  17% /
+	/dev/sda7                      28513060      45124  26996500   1% /var/tmp
+	wolf-1:/export/home/samirrav 6289369088 5927917792 361451296  95% /home/samirrav
+	#
+
+### e2fsck
 
 
 #### e2fsck command execution on non-corrupted file system to check if filesystem is clean or not.
