@@ -1033,7 +1033,7 @@ func TestServer_CtlSvc_StorageScan_PostEngineStart(t *testing.T) {
 			sCfg := config.DefaultServer().WithEngines(engineCfgs...)
 			cs := mockControlService(t, log, sCfg, csbmbc, tc.smbc, tc.smsc)
 
-			// In production, during server/server.go:srv.addEngines() and after
+			// In production, during server/server.go:srv.startEngines() and after
 			// srv.createEngine(), engine.storage.SetBdevCache() is called to load the
 			// results of the start-up bdev scan from the control service storage
 			// provider into the engine's storage provider. The control service and

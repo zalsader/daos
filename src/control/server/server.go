@@ -229,6 +229,10 @@ func (srv *server) initNetwork() error {
 	return nil
 }
 
+func (srv *server) prepStorage() error {
+	return prepBdevStorage(srv, iommuDetected())
+}
+
 func (srv *server) createEngine(ctx context.Context, idx int, cfg *engine.Config) (*EngineInstance, error) {
 	// Closure to join an engine instance to a system using control API.
 	joinFn := func(ctxIn context.Context, req *control.SystemJoinReq) (*control.SystemJoinResp, error) {
@@ -248,16 +252,14 @@ func (srv *server) createEngine(ctx context.Context, idx int, cfg *engine.Config
 	return engine, nil
 }
 
-// addEngines creates and adds engine instances to harness then starts goroutine to execute
-// callbacks when all engines are started.
+// addEngines creates and adds engine instances to harness then asynchronously monitor for when
+// all engines are started. Trigger the relevant callbacks when they are.
 func (srv *server) addEngines(ctx context.Context) error {
-	var allStarted sync.WaitGroup
-	registerTelemetryCallbacks(ctx, srv)
-
-	// Allocate hugepages and rebind NVMe devices to userspace drivers.
-	if err := prepBdevStorage(srv, iommuDetected()); err != nil {
-		return err
+	if len(srv.cfg.Engines) == 0 {
+		return nil
 	}
+
+	srv.log.Debug("adding engines to harness...")
 
 	// Retrieve NVMe device details (before engines are started) so static details can be
 	// recovered by the engine storage provider(s) during scan even if devices are in use.
@@ -266,9 +268,8 @@ func (srv *server) addEngines(ctx context.Context) error {
 		return err
 	}
 
-	if len(srv.cfg.Engines) == 0 {
-		return nil
-	}
+	var allStarted sync.WaitGroup
+	registerTelemetryCallbacks(ctx, srv)
 
 	for i, c := range srv.cfg.Engines {
 		engine, err := srv.createEngine(ctx, i, c)
@@ -416,6 +417,7 @@ func (srv *server) start(ctx context.Context, shutdown context.CancelFunc) error
 		}
 	}()
 
+	srv.log.Debug("starting engine harness...")
 	return errors.Wrapf(srv.harness.Start(ctx, srv.sysdb, srv.cfg),
 		"%s harness exited", build.ControlPlaneName)
 }
@@ -453,6 +455,10 @@ func Start(log *logging.LeveledLogger, cfg *config.Server) error {
 	}
 
 	if err := srv.initNetwork(); err != nil {
+		return err
+	}
+
+	if err := srv.prepStorage(); err != nil {
 		return err
 	}
 

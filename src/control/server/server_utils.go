@@ -176,6 +176,7 @@ func getEngineNUMANodes(log logging.Logger, engineCfgs []*engine.Config) []strin
 	return nodes
 }
 
+// Allocate system hugepages and rebind NVMe SSDs to userspace drivers for use with SPDK
 func prepBdevStorage(srv *server, iommuEnabled bool) error {
 	hasBdevs := cfgHasBdevs(srv.cfg)
 

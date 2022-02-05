@@ -467,10 +467,19 @@ type scanFn func(BdevScanRequest) (*BdevScanResponse, error)
 
 func scanBdevs(log logging.Logger, req BdevScanRequest, cachedResp *BdevScanResponse, scan scanFn) (*BdevScanResponse, error) {
 	if !req.BypassCache && cachedResp != nil && len(cachedResp.Controllers) != 0 {
+		log.Debugf("storage provider returning cached results for bdev scan: %+v",
+			cachedResp.Controllers)
 		return cachedResp, nil
 	}
 
-	return scan(req)
+	resp, err := scan(req)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("storage provider fetching new results for bdev scan from backend: %+v",
+		resp.Controllers)
+
+	return resp, nil
 }
 
 // ScanBdevs either calls into backend bdev provider to scan SSDs or returns
