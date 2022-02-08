@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """
-  (C) Copyright 2018-2021 Intel Corporation.
+  (C) Copyright 2018-2022 Intel Corporation.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
@@ -29,11 +29,6 @@ class SimpleCreateDeleteTest(TestWithServers):
         # Create a pool
         self.log.info("Create a pool")
         self.prepare_pool()
-
-        # Check that the pool was created
-        self.assertTrue(
-            self.pool.check_files(self.hostlist_servers),
-            "Pool data was not created")
 
         # Create a container
         self.container = TestContainer(self.pool)
