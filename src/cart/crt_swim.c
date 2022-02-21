@@ -627,7 +627,8 @@ out:
 }
 
 static void
-crt_swim_notify_rank_state(d_rank_t rank, struct swim_member_state *state)
+crt_swim_notify_rank_state(d_rank_t rank, struct swim_member_state *state_prev,
+			   struct swim_member_state *state)
 {
 	struct crt_event_cb_priv *cbs_event;
 	crt_event_cb		 cb_func;
@@ -635,7 +636,13 @@ crt_swim_notify_rank_state(d_rank_t rank, struct swim_member_state *state)
 	enum crt_event_type	 cb_type;
 	size_t			 i, cbs_size;
 
+	D_ASSERT(state_prev != NULL);
 	D_ASSERT(state != NULL);
+
+	D_DEBUG(DB_TRACE, "rank=%u: status=%c->%c incarnation="DF_U64"->"DF_U64"\n", rank,
+		SWIM_STATUS_CHARS[state_prev->sms_status], SWIM_STATUS_CHARS[state->sms_status],
+		state_prev->sms_incarnation, state->sms_incarnation);
+
 	switch (state->sms_status) {
 	case SWIM_MEMBER_ALIVE:
 		cb_type = CRT_EVT_ALIVE;
@@ -645,6 +652,22 @@ crt_swim_notify_rank_state(d_rank_t rank, struct swim_member_state *state)
 		break;
 	default:
 		return;
+	}
+
+	/*
+	 * Abort inflight RPCs if the rank has become DEAD or has potentially
+	 * restarted, to avoid waiting out RPC timeouts. Note that this
+	 * avoidance is an optimization, not a guarantee. In the "DEAD" case,
+	 * future RPCs will also be canceled immediately. If the rank has just
+	 * moved from INACTIVE to ALIVE, we assume that it likely has not
+	 * restarted, for that is the common case.
+	 */
+	if (cb_type == CRT_EVT_DEAD || state_prev->sms_incarnation != 0) {
+		enum crt_rank_mark_op op = CRM_MARK_ALIVE;
+
+		if (cb_type == CRT_EVT_DEAD)
+			op = CRM_MARK_DEAD;
+		crt_rank_abort_and_mark(rank, op);
 	}
 
 	/* walk the global list to execute the user callbacks */
@@ -690,6 +713,7 @@ static int crt_swim_set_member_state(struct swim_context *ctx,
 	struct crt_grp_priv	*grp_priv = crt_gdata.cg_grp->gg_primary_grp;
 	struct crt_swim_membs	*csm = &grp_priv->gp_membs_swim;
 	struct crt_swim_target	*cst;
+	struct swim_member_state state_prev = {0};
 	int			 rc = -DER_NONEXIST;
 
 	D_ASSERT(state != NULL);
@@ -705,6 +729,7 @@ static int crt_swim_set_member_state(struct swim_context *ctx,
 			else if (cst->cst_state.sms_status == SWIM_MEMBER_ALIVE &&
 			    state->sms_status != SWIM_MEMBER_ALIVE)
 				csm->csm_alive_count--;
+			state_prev = cst->cst_state;
 			cst->cst_state = *state;
 			rc = 0;
 			break;
@@ -713,7 +738,7 @@ static int crt_swim_set_member_state(struct swim_context *ctx,
 	crt_swim_csm_unlock(csm);
 
 	if (rc == 0)
-		crt_swim_notify_rank_state((d_rank_t)id, state);
+		crt_swim_notify_rank_state((d_rank_t)id, &state_prev, state);
 
 	return rc;
 }

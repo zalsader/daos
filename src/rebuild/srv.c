@@ -810,7 +810,7 @@ rebuild_prepare(struct ds_pool *pool, uint32_t rebuild_ver,
 		 * map anymore -> we need to skip this rebuild.
 		 */
 		if (!changed) {
-			rc = -DER_CANCELED;
+			rc = -DER_OP_CANCELED;
 			D_ERROR("rebuild targets canceled\n");
 		}
 	}
@@ -1140,7 +1140,7 @@ rebuild_task_ult(void *arg)
 	rc = rebuild_leader_start(pool, task->dst_map_ver, &task->dst_tgts,
 				  task->dst_rebuild_op, &rgt);
 	if (rc != 0) {
-		if (rc == -DER_CANCELED || rc == -DER_NOTLEADER) {
+		if (rc == -DER_OP_CANCELED || rc == -DER_NOTLEADER) {
 			/* If it is not leader, the new leader will step up
 			 * restart rebuild anyway, so do not need reschedule
 			 * rebuild on this node anymore.
