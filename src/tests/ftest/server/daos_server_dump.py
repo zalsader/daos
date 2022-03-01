@@ -1,15 +1,26 @@
 #!/usr/bin/python
 """
-  (C) Copyright 2020-2021 Intel Corporation.
+  (C) Copyright 2020-2022 Intel Corporation.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 from __future__ import print_function
 
+from avocado.core import exceptions
+
 from apricot import TestWithServers
 from general_utils import pcmd, dump_engines_stacks
 
 import time
+
+
+
+class TestPass(exceptions.TestBaseException):
+    """
+    Indicates that the test was not fully executed and no error happened.
+    """
+    status = "PASS"
+
 
 class DaosServerDumpTest(TestWithServers):
     """Daos server dump tests.
@@ -30,12 +41,6 @@ class DaosServerDumpTest(TestWithServers):
         """Tear down after each test case."""
         super().tearDown()
 
-        # force test status !!
-        # use mangling trick described at
-        # https://stackoverflow.com/questions/3385317/private-variables-and-methods-in-python
-        # to do so
-        self._Test__status = 'PASS'
-
         # DAOS-1452 may need to check for one file per engine...
         ret_codes = pcmd(self.hostlist_servers, r"ls /tmp/daos_dump*.txt")
         # Report any failures
@@ -44,10 +49,10 @@ class DaosServerDumpTest(TestWithServers):
                 "{}: rc={}".format(val, key)
                 for key, val in ret_codes.items() if key != 0
             ]
-            print(
-                "no ULT stacks dump found on following hosts: {}".format(
-                ", ".join(failed)))
-            self._Test__status = 'FAIL'
+            raise exceptions.TestError(f"No ULT stacks dump found on following hosts: {failed}")
+
+        raise TestPass(f"Everything is OK")
+
 
     def test_daos_server_dump_basic(self):
         """JIRA ID: DAOS-1452.
