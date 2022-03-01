@@ -428,11 +428,11 @@ Rank  Operation Result
 ----  --------- ------
 [0-1] stop      OK
 ```
-#### Stop the daos_server on the node where PCMEM checkking is required.
+#### Stop the daos_server on the node where PMem checkking is required.
 
 	#systemctl stop daos_server.service
 
-#### DAOS PCMEM is still mounted so unmount the daos mountpoint.
+#### DAOS PMem is still mounted so unmount the daos mountpoint.
 ```
 # df
 Filesystem                    1K-blocks       Used  Available Use% Mounted on
