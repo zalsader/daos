@@ -164,6 +164,11 @@ if [ -d "/mnt/daos" ]; then
     run_test "${SL_BUILD_DIR}/src/engine/tests/drpc_handler_tests"
     run_test "${SL_BUILD_DIR}/src/engine/tests/drpc_listener_tests"
 
+    COMP="UTEST_PMFS"
+    run_test "${SL_PREFIX}/bin/vos_perf" -x -R '"U;p F;p V"' -o 5 -d 5 \
+             -a 5 -n 10 -A -i -I
+    run_test "${SL_PREFIX}/bin/pmfs_unittest" -f
+
     COMP="UTEST_mgmt"
     run_test "${SL_BUILD_DIR}/src/mgmt/tests/srv_drpc_tests"
     run_test "${SL_PREFIX}/bin/vos_perf" -R '"U;p F;p V"' -o 5 -d 5 \

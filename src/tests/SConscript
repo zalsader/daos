@@ -26,7 +26,7 @@ def scons():
 
     denv.Append(CPPPATH=[Dir('suite').srcnode()])
     denv.AppendUnique(CPPPATH=[Dir('../mgmt').srcnode()])
-    prereqs.require(denv, 'argobots', 'hwloc', 'protobufc', 'pmdk', 'isal')
+    prereqs.require(denv, 'argobots', 'hwloc', 'protobufc', 'pmdk', 'isal','spdk')
 
     daos_build.program(denv, 'simple_array', 'simple_array.c', LIBS=libs_client)
     daos_build.program(denv, 'simple_obj', 'simple_obj.c', LIBS=libs_client)
@@ -61,6 +61,14 @@ def scons():
 
     jobtest = daos_build.program(denv, 'jobtest', ['jobtest.c'], LIBS=libs_client)
     denv.Install('$PREFIX/bin/', jobtest)
+
+    libs_server += ['pmfs']
+    pmfs_unittest = daos_build.program(denv, 'pmfs_unittest', ['pmfs_unittest.c'],
+					LIBS=libs_server)
+    pmfs_demo = daos_build.program(denv, 'pmfs_demo', ['pmfs_demo.c'],
+					LIBS=libs_server)
+    denv.Install('$PREFIX/bin/',pmfs_unittest)
+    denv.Install('$PREFIX/bin/',pmfs_demo)
 
     # tests
     SConscript('suite/SConscript', exports=['denv'])
