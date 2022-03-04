@@ -416,6 +416,8 @@ Verify if you're using Infiniband for `fabric_iface`: in the server config. The 
 
 ## Diagnostic and Recovery Tools
 
+### **WARNING : Please be careful and use this tool under supervision of DAOS export.**
+
 In case of PMEM device restored to healthy state, the ext4 filesystem
 created on each PMEM devices may need to verified and repaired if needed.
 
