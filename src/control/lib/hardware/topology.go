@@ -67,6 +67,27 @@ func (t *Topology) NumCoresPerNUMA() int {
 	return 0
 }
 
+// GetNUMANodeForCore finds the NUMA node that includes a given core ID.
+func (t *Topology) GetNUMANodeForCore(coreID uint) (*NUMANode, error) {
+	if t == nil {
+		return nil, errors.New("Topology is nil")
+	}
+
+	if t.NumNUMANodes() == 0 {
+		return nil, errors.New("no NUMA nodes")
+	}
+
+	for _, numa := range t.NUMANodes {
+		for _, core := range numa.Cores {
+			if core.ID == coreID {
+				return core.NUMANode, nil
+			}
+		}
+	}
+
+	return nil, errors.Errorf("core ID %d not found on any NUMA node", coreID)
+}
+
 // AddDevice adds a device to the topology.
 func (t *Topology) AddDevice(numaID uint, device *PCIDevice) error {
 	if t == nil {

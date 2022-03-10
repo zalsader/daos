@@ -503,6 +503,84 @@ func TestHardware_Topology_Merge(t *testing.T) {
 	}
 }
 
+func TestHardware_Topology_GetNUMANodeForCore(t *testing.T) {
+	testNumCores := uint(6)
+
+	for name, tc := range map[string]struct {
+		topo    *Topology
+		coreID  uint
+		expNUMA *NUMANode
+		expErr  error
+	}{
+		"nil": {
+			expErr: errors.New("nil"),
+		},
+		"empty": {
+			topo:   &Topology{},
+			expErr: errors.New("no NUMA nodes"),
+		},
+		"first NUMA node, first core": {
+			topo: &Topology{
+				NUMANodes: NodeMap{
+					0: MockNUMANode(0, testNumCores),
+					1: MockNUMANode(1, testNumCores, testNumCores),
+				},
+			},
+			coreID:  0,
+			expNUMA: MockNUMANode(0, testNumCores),
+		},
+		"first NUMA node, last core": {
+			topo: &Topology{
+				NUMANodes: NodeMap{
+					0: MockNUMANode(0, testNumCores),
+					1: MockNUMANode(1, testNumCores, testNumCores),
+				},
+			},
+			coreID:  testNumCores - 1,
+			expNUMA: MockNUMANode(0, testNumCores),
+		},
+		"second NUMA node": {
+			topo: &Topology{
+				NUMANodes: NodeMap{
+					0: MockNUMANode(0, testNumCores),
+					1: MockNUMANode(1, testNumCores, testNumCores),
+				},
+			},
+			coreID:  testNumCores,
+			expNUMA: MockNUMANode(1, testNumCores, testNumCores),
+		},
+		"second NUMA node, last core": {
+			topo: &Topology{
+				NUMANodes: NodeMap{
+					0: MockNUMANode(0, testNumCores),
+					1: MockNUMANode(1, testNumCores, testNumCores),
+				},
+			},
+			coreID:  2*testNumCores - 1,
+			expNUMA: MockNUMANode(1, testNumCores, testNumCores),
+		},
+		"not found": {
+			topo: &Topology{
+				NUMANodes: NodeMap{
+					0: MockNUMANode(0, testNumCores),
+					1: MockNUMANode(1, testNumCores, testNumCores),
+				},
+			},
+			coreID: testNumCores * 2,
+			expErr: errors.New("not found"),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			numa, err := tc.topo.GetNUMANodeForCore(tc.coreID)
+
+			common.CmpErr(t, tc.expErr, err)
+			if diff := cmp.Diff(tc.expNUMA, numa); diff != "" {
+				t.Fatalf("(-want, +got)\n%s\n", diff)
+			}
+		})
+	}
+}
+
 func TestHardware_DeviceType_String(t *testing.T) {
 	for name, tc := range map[string]struct {
 		devType   DeviceType

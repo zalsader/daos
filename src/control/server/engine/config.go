@@ -170,12 +170,30 @@ func NewConfig() *Config {
 }
 
 // setAffinity ensures engine NUMA locality is assigned and valid.
-func (c *Config) setAffinity(log logging.Logger, fis *hardware.FabricInterfaceSet) (err error) {
+func (c *Config) setAffinity(log logging.Logger, fis *hardware.FabricInterfaceSet, topo *hardware.Topology) error {
+	var err error
 	var fi *hardware.FabricInterface
 	if fis != nil {
 		fi, err = fis.GetInterfaceOnOSDevice(c.Fabric.Interface, c.Fabric.Provider)
 		if err != nil {
-			return
+			return err
+		}
+	}
+
+	var coreNUMA *hardware.NUMANode
+	if c.ServiceThreadCore != 0 {
+		coreNUMA, err = topo.GetNUMANodeForCore(uint(c.ServiceThreadCore))
+		if err != nil {
+			return err
+		}
+
+		c.Fabric.NumaNodeIndex = coreNUMA.ID
+		c.Storage.NumaNodeIndex = coreNUMA.ID
+
+		if fi != nil && fi.NUMANode != coreNUMA.ID {
+			return errors.Errorf("misconfiguration: network interface %s is on NUMA "+
+				"node %d but engine first_core is on NUMA node %d", c.Fabric.Interface,
+				fi.NUMANode, coreNUMA.ID)
 		}
 	}
 
@@ -185,23 +203,30 @@ func (c *Config) setAffinity(log logging.Logger, fis *hardware.FabricInterfaceSe
 
 		// validate that numa node is correct for the given device
 		if fi != nil && fi.NUMANode != *c.PinnedNumaNode {
-			log.Errorf("misconfiguration: network interface %s is on NUMA "+
+			return errors.Errorf("misconfiguration: network interface %s is on NUMA "+
 				"node %d but engine is pinned to NUMA node %d", c.Fabric.Interface,
 				fi.NUMANode, *c.PinnedNumaNode)
 		}
 
-		return
+		// if core ID was specified, make sure it is on the pinned numa node
+		if coreNUMA != nil && coreNUMA.ID != *c.PinnedNumaNode {
+			return errors.Errorf("misconfiguration: first core %d is on NUMA "+
+				"node %d but engine is pinned to NUMA node %d",
+				c.ServiceThreadCore, coreNUMA.ID, *c.PinnedNumaNode)
+		}
+
+		return nil
 	}
 
 	if fi == nil {
-		return errors.New("pinned_numa_node unset in config and fabric info not provided")
+		return errors.New("pinned_numa_node and first_core unset in config and fabric info not provided")
 	}
 
 	// set engine numa node index to that of selected fabric interface
 	c.Fabric.NumaNodeIndex = fi.NUMANode
 	c.Storage.NumaNodeIndex = fi.NUMANode
 
-	return
+	return nil
 }
 
 // Validate ensures that the configuration meets minimum standards.
