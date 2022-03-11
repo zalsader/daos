@@ -35,7 +35,7 @@ import (
 	"github.com/daos-stack/daos/src/control/system"
 )
 
-func processConfig(log *logging.LeveledLogger, cfg *config.Server, fis *hardware.FabricInterfaceSet) (*system.FaultDomain, error) {
+func processConfig(log *logging.LeveledLogger, cfg *config.Server, fis *hardware.FabricInterfaceSet, topo *hardware.Topology) (*system.FaultDomain, error) {
 	processFabricProvider(cfg)
 
 	hpi, err := common.GetHugePageInfo()
@@ -43,7 +43,11 @@ func processConfig(log *logging.LeveledLogger, cfg *config.Server, fis *hardware
 		return nil, errors.Wrapf(err, "retrieve hugepage info")
 	}
 
-	if err := cfg.Validate(log, hpi.PageSizeKb, fis); err != nil {
+	if err := cfg.Validate(log, &config.ValidateParams{
+		HugePageSize: hpi.PageSizeKb,
+		Fabric:       fis,
+		Topology:     topo,
+	}); err != nil {
 		return nil, errors.Wrapf(err, "%s: validation failed", cfg.Path)
 	}
 
@@ -433,13 +437,22 @@ func Start(log *logging.LeveledLogger, cfg *config.Server) error {
 	}
 	defer hwprovFini()
 
+	topo, err := hwprov.DefaultTopologyProvider(log).GetTopology(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get hardware topology")
+	}
+
 	scanner := hwprov.DefaultFabricScanner(log)
+	if err := scanner.CacheTopology(topo); err != nil {
+		return errors.Wrap(err, "caching hardware topology for fabric scan")
+	}
+
 	fiSet, err := scanner.Scan(ctx)
 	if err != nil {
 		return errors.Wrap(err, "scan fabric")
 	}
 
-	faultDomain, err := processConfig(log, cfg, fiSet)
+	faultDomain, err := processConfig(log, cfg, fiSet, topo)
 	if err != nil {
 		return err
 	}

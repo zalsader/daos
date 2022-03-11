@@ -390,8 +390,15 @@ func getAccessPointAddrWithPort(log logging.Logger, addr string, portDefault int
 	return addr, nil
 }
 
+// ValidateParams contains external parameters needed for the configuration validation.
+type ValidateParams struct {
+	HugePageSize int
+	Fabric       *hardware.FabricInterfaceSet
+	Topology     *hardware.Topology
+}
+
 // Validate asserts that config meets minimum requirements.
-func (cfg *Server) Validate(log logging.Logger, hugePageSize int, fis *hardware.FabricInterfaceSet) (err error) {
+func (cfg *Server) Validate(log logging.Logger, params *ValidateParams) (err error) {
 	msg := "validating config file"
 	if cfg.Path != "" {
 		msg += fmt.Sprintf(" read from %q", cfg.Path)
@@ -512,7 +519,10 @@ func (cfg *Server) Validate(log logging.Logger, hugePageSize int, fis *hardware.
 
 		ec.Fabric.Update(cfg.Fabric)
 
-		if err := ec.Validate(log, fis); err != nil {
+		if err := ec.Validate(log, &engine.CfgValidateParams{
+			Fabric:   params.Fabric,
+			Topology: params.Topology,
+		}); err != nil {
 			return errors.Wrapf(err, "I/O Engine %d failed config validation", idx)
 		}
 
@@ -530,7 +540,7 @@ func (cfg *Server) Validate(log logging.Logger, hugePageSize int, fis *hardware.
 		}
 
 		// Calculate minimum number of hugepages for all configured engines.
-		minHugePages, err := common.CalcMinHugePages(hugePageSize, cfgTargetCount)
+		minHugePages, err := common.CalcMinHugePages(params.HugePageSize, cfgTargetCount)
 		if err != nil {
 			return err
 		}

@@ -694,5 +694,5 @@ func genConfig(log logging.Logger, newEngineCfg newEngineCfgFn, accessPoints []s
 		WithNrHugePages(reqHugePages).
 		WithEnableVMD(sd.vmdEnabled)
 
-	return cfg, cfg.Validate(log, sd.hugePageSize, nil)
+	return cfg, cfg.Validate(log, &config.ValidateParams{HugePageSize: sd.hugePageSize})
 }

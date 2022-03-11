@@ -704,7 +704,7 @@ func TestConfig_setAffinity(t *testing.T) {
 				fis = hardware.NewFabricInterfaceSet(tc.fi)
 			}
 
-			err := tc.cfg.setAffinity(log, fis)
+			err := tc.cfg.setAffinity(log, &CfgValidateParams{Fabric: fis})
 			common.CmpErr(t, tc.expErr, err)
 
 			common.AssertEqual(t, tc.expNuma, tc.cfg.Storage.NumaNodeIndex,

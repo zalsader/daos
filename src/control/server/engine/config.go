@@ -170,67 +170,136 @@ func NewConfig() *Config {
 }
 
 // setAffinity ensures engine NUMA locality is assigned and valid.
-func (c *Config) setAffinity(log logging.Logger, fis *hardware.FabricInterfaceSet, topo *hardware.Topology) error {
+func (c *Config) setAffinity(log logging.Logger, params *CfgValidateParams) error {
+	numaNode, err := c.selectNUMANode(log, params)
+	if err != nil {
+		return err
+	}
+
+	c.Fabric.NumaNodeIndex = numaNode
+	c.Storage.NumaNodeIndex = numaNode
+
+	return nil
+
+	// var err error
+	// var fi *hardware.FabricInterface
+	// if params != nil && params.Fabric != nil {
+	// 	fi, err = params.Fabric.GetInterfaceOnOSDevice(c.Fabric.Interface, c.Fabric.Provider)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// var coreNUMA *hardware.NUMANode
+	// if params != nil && params.Topology != nil && c.ServiceThreadCore != 0 {
+	// 	coreNUMA, err = params.Topology.GetNUMANodeForCore(uint(c.ServiceThreadCore))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	c.Fabric.NumaNodeIndex = coreNUMA.ID
+	// 	c.Storage.NumaNodeIndex = coreNUMA.ID
+
+	// 	if fi != nil && fi.NUMANode != coreNUMA.ID {
+	// 		log.Errorf("misconfiguration: network interface %s is on NUMA "+
+	// 			"node %d but engine first_core is on NUMA node %d", c.Fabric.Interface,
+	// 			fi.NUMANode, coreNUMA.ID)
+	// 	}
+	// }
+
+	// if c.PinnedNumaNode != nil {
+	// 	c.Fabric.NumaNodeIndex = *c.PinnedNumaNode
+	// 	c.Storage.NumaNodeIndex = *c.PinnedNumaNode
+
+	// 	// validate that numa node is correct for the given device
+	// 	if fi != nil && fi.NUMANode != *c.PinnedNumaNode {
+	// 		log.Errorf("misconfiguration: network interface %s is on NUMA "+
+	// 			"node %d but engine is pinned to NUMA node %d", c.Fabric.Interface,
+	// 			fi.NUMANode, *c.PinnedNumaNode)
+	// 	}
+
+	// 	// if core ID was specified, make sure it is on the pinned numa node
+	// 	if coreNUMA != nil && coreNUMA.ID != *c.PinnedNumaNode {
+	// 		return errors.Errorf("misconfiguration: first core %d is on NUMA "+
+	// 			"node %d but engine is pinned to NUMA node %d",
+	// 			c.ServiceThreadCore, coreNUMA.ID, *c.PinnedNumaNode)
+	// 	}
+
+	// 	return nil
+	// }
+
+	// if fi == nil {
+	// 	return errors.New("pinned_numa_node unset in config and fabric info not provided")
+	// }
+
+	// // set engine numa node index to that of selected fabric interface
+	// c.Fabric.NumaNodeIndex = fi.NUMANode
+	// c.Storage.NumaNodeIndex = fi.NUMANode
+
+	// return nil
+}
+
+func (c *Config) selectNUMANode(log logging.Logger, params *CfgValidateParams) (uint, error) {
 	var err error
 	var fi *hardware.FabricInterface
-	if fis != nil {
-		fi, err = fis.GetInterfaceOnOSDevice(c.Fabric.Interface, c.Fabric.Provider)
+	if params != nil && params.Fabric != nil {
+		fi, err = params.Fabric.GetInterfaceOnOSDevice(c.Fabric.Interface, c.Fabric.Provider)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 
 	var coreNUMA *hardware.NUMANode
 	if c.ServiceThreadCore != 0 {
-		coreNUMA, err = topo.GetNUMANodeForCore(uint(c.ServiceThreadCore))
+		coreNUMA, err = params.Topology.GetNUMANodeForCore(uint(c.ServiceThreadCore))
 		if err != nil {
-			return err
+			return 0, errors.Wrapf(err, "getting NUMA node for first core %d", c.ServiceThreadCore)
 		}
 
-		c.Fabric.NumaNodeIndex = coreNUMA.ID
-		c.Storage.NumaNodeIndex = coreNUMA.ID
-
 		if fi != nil && fi.NUMANode != coreNUMA.ID {
-			return errors.Errorf("misconfiguration: network interface %s is on NUMA "+
+			log.Errorf("misconfiguration: network interface %s is on NUMA "+
 				"node %d but engine first_core is on NUMA node %d", c.Fabric.Interface,
 				fi.NUMANode, coreNUMA.ID)
 		}
 	}
 
 	if c.PinnedNumaNode != nil {
-		c.Fabric.NumaNodeIndex = *c.PinnedNumaNode
-		c.Storage.NumaNodeIndex = *c.PinnedNumaNode
+		pinned := *c.PinnedNumaNode
+		if coreNUMA != nil && pinned != coreNUMA.ID {
+			return 0, errors.Errorf("pinned NUMA node %d and location of core %d (NUMA node %d) don't match",
+				pinned, c.ServiceThreadCore, coreNUMA.ID)
+		}
 
-		// validate that numa node is correct for the given device
-		if fi != nil && fi.NUMANode != *c.PinnedNumaNode {
-			return errors.Errorf("misconfiguration: network interface %s is on NUMA "+
+		if fi != nil && fi.NUMANode != pinned {
+			log.Errorf("misconfiguration: network interface %s is on NUMA "+
 				"node %d but engine is pinned to NUMA node %d", c.Fabric.Interface,
-				fi.NUMANode, *c.PinnedNumaNode)
+				fi.NUMANode, pinned)
 		}
 
-		// if core ID was specified, make sure it is on the pinned numa node
-		if coreNUMA != nil && coreNUMA.ID != *c.PinnedNumaNode {
-			return errors.Errorf("misconfiguration: first core %d is on NUMA "+
-				"node %d but engine is pinned to NUMA node %d",
-				c.ServiceThreadCore, coreNUMA.ID, *c.PinnedNumaNode)
-		}
-
-		return nil
+		return pinned, nil
 	}
 
-	if fi == nil {
-		return errors.New("pinned_numa_node and first_core unset in config and fabric info not provided")
+	// only the core was specified
+	if coreNUMA != nil {
+		return coreNUMA.ID, nil
 	}
 
-	// set engine numa node index to that of selected fabric interface
-	c.Fabric.NumaNodeIndex = fi.NUMANode
-	c.Storage.NumaNodeIndex = fi.NUMANode
+	// when no specific NUMA affinity is specified, go with the node the fabric interface is using
+	if fi != nil {
+		return fi.NUMANode, nil
+	}
 
-	return nil
+	return 0, errors.New("pinned_numa_node and first_core unset in config and fabric info not provided")
+}
+
+// CfgValidateParams contains external parameters needed for the engine configuration validation.
+type CfgValidateParams struct {
+	Fabric   *hardware.FabricInterfaceSet
+	Topology *hardware.Topology
 }
 
 // Validate ensures that the configuration meets minimum standards.
-func (c *Config) Validate(log logging.Logger, fis *hardware.FabricInterfaceSet) error {
+func (c *Config) Validate(log logging.Logger, params *CfgValidateParams) error {
 	if err := c.Fabric.Validate(); err != nil {
 		return errors.Wrap(err, "fabric config validation failed")
 	}
@@ -243,7 +312,7 @@ func (c *Config) Validate(log logging.Logger, fis *hardware.FabricInterfaceSet) 
 		return errors.Wrap(err, "validate engine log masks")
 	}
 
-	return errors.Wrap(c.setAffinity(log, fis), "setting numa affinity for engine")
+	return errors.Wrap(c.setAffinity(log, params), "setting numa affinity for engine")
 }
 
 // CmdLineArgs returns a slice of command line arguments to be
