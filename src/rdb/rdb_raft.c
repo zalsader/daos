@@ -2236,11 +2236,52 @@ rdb_raft_load_entry(struct rdb *db, uint64_t index)
 	return 0;
 }
 
+static int
+rdb_raft_open_lc(struct rdb *db)
+{
+	d_iov_t		value;
+	int		rc;
+
+	d_iov_set(&value, &db->d_lc_record, sizeof(db->d_lc_record));
+	rc = rdb_mc_lookup(db->d_mc, RDB_MC_ATTRS, &rdb_mc_lc, &value);
+	if (rc != 0) {
+		D_ERROR(DF_DB": failed to look up LC: "DF_RC"\n", DP_DB(db), DP_RC(rc));
+		return rc;
+	}
+
+	rc = vos_cont_open(db->d_pool, db->d_lc_record.dlr_uuid, &db->d_lc);
+	if (rc != 0) {
+		D_ERROR(DF_DB": failed to open LC "DF_UUID": "DF_RC"\n", DP_DB(db),
+			DP_UUID(db->d_lc_record.dlr_uuid), DP_RC(rc));
+		return rc;
+	}
+
+	/* Recover the LC by discarding any partially appended entries. */
+	rc = rdb_lc_discard(db->d_lc, db->d_lc_record.dlr_tail, RDB_LC_INDEX_MAX);
+	if (rc != 0) {
+		D_ERROR(DF_DB": failed to recover LC "DF_U64": "DF_RC"\n", DP_DB(db),
+			db->d_lc_record.dlr_base, DP_RC(rc));
+		vos_cont_close(db->d_lc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static void
+rdb_raft_close_lc(struct rdb *db)
+{
+	int rc;
+
+	rc = vos_cont_close(db->d_lc);
+	D_ASSERTF(rc == 0, DF_DB": close LC: "DF_RC"\n", DP_DB(db), DP_RC(rc));
+}
+
 /* Load the LC and the SLC (if one exists). */
 static int
 rdb_raft_load_lc(struct rdb *db)
 {
-	d_iov_t	value;
+	d_iov_t		value;
 	uint64_t	i;
 	int		rc;
 
@@ -2250,7 +2291,7 @@ rdb_raft_load_lc(struct rdb *db)
 	if (rc == -DER_NONEXIST) {
 		D_DEBUG(DB_MD, DF_DB": no SLC record\n", DP_DB(db));
 		db->d_slc = DAOS_HDL_INVAL;
-		goto lc;
+		goto proceed;
 	} else if (rc != 0) {
 		D_ERROR(DF_DB": failed to look up SLC: "DF_RC"\n", DP_DB(db),
 			DP_RC(rc));
@@ -2267,35 +2308,11 @@ rdb_raft_load_lc(struct rdb *db)
 		goto err;
 	}
 
-lc:
-	/* Look up and open the LC. */
-	d_iov_set(&value, &db->d_lc_record, sizeof(db->d_lc_record));
-	rc = rdb_mc_lookup(db->d_mc, RDB_MC_ATTRS, &rdb_mc_lc, &value);
-	if (rc != 0) {
-		D_ERROR(DF_DB": failed to look up LC: "DF_RC"\n", DP_DB(db),
-			DP_RC(rc));
-		goto err_slc;
-	}
-	rc = vos_cont_open(db->d_pool, db->d_lc_record.dlr_uuid, &db->d_lc);
-	if (rc != 0) {
-		D_ERROR(DF_DB": failed to open LC "DF_UUID": %d\n", DP_DB(db),
-			DP_UUID(db->d_lc_record.dlr_uuid), rc);
-		goto err_slc;
-	}
-
-	/* Recover the LC by discarding any partially appended entries. */
-	rc = rdb_lc_discard(db->d_lc, db->d_lc_record.dlr_tail,
-			    RDB_LC_INDEX_MAX);
-	if (rc != 0) {
-		D_ERROR(DF_DB": failed to recover LC "DF_U64": %d\n", DP_DB(db),
-			db->d_lc_record.dlr_base, rc);
-		goto err_lc;
-	}
-
+proceed:
 	/* Load the LC base. */
 	rc = rdb_raft_load_snapshot(db);
 	if (rc != 0)
-		goto err_lc;
+		goto err_slc;
 
 	/* Load the log entries. */
 	for (i = db->d_lc_record.dlr_base + 1; i < db->d_lc_record.dlr_tail;
@@ -2308,13 +2325,11 @@ lc:
 			ABT_thread_yield();
 		rc = rdb_raft_load_entry(db, i);
 		if (rc != 0)
-			goto err_lc;
+			goto err_slc;
 	}
 
 	return 0;
 
-err_lc:
-	vos_cont_close(db->d_lc);
 err_slc:
 	if (daos_handle_is_valid(db->d_slc))
 		vos_cont_close(db->d_slc);
@@ -2328,7 +2343,6 @@ rdb_raft_unload_lc(struct rdb *db)
 	rdb_raft_unload_snapshot(db);
 	if (daos_handle_is_valid(db->d_slc))
 		vos_cont_close(db->d_slc);
-	vos_cont_close(db->d_lc);
 }
 
 static int
@@ -2408,6 +2422,92 @@ rdb_raft_get_ae_max_size(void)
 	return value;
 }
 
+/* Note that, unlike rdb_dictate, this function does not start Raft. */
+static int
+rdb_raft_dictate(struct rdb *db)
+{
+	struct rdb_lc_record	lc_record = db->d_lc_record;
+	uint64_t		term;
+	d_rank_list_t		replicas;
+	d_rank_t		self = dss_self_rank();
+	d_iov_t			keys[2];
+	d_iov_t			value;
+	uint64_t		index = lc_record.dlr_tail;
+	int			rc;
+
+	/*
+	 * Since we don't have an RDB fsck phase yet, do a basic check to avoid
+	 * arithmetic issues.
+	 */
+	if (lc_record.dlr_base >= index) {
+		D_ERROR(DF_DB": LC record corrupted: base "DF_U64" >= tail "DF_U64"\n", DP_DB(db),
+			lc_record.dlr_base, index);
+		return -DER_IO;
+	}
+
+	/* Get the term at the last index. */
+	if (index - lc_record.dlr_base - 1 > 0) {
+		struct rdb_entry header;
+
+		/* The LC has entries. Get from the last entry. */
+		d_iov_set(&value, &header, sizeof(header));
+		rc = rdb_lc_lookup(db->d_lc, index - 1, RDB_LC_ATTRS, &rdb_lc_entry_header, &value);
+		if (rc != 0) {
+			D_ERROR(DF_DB": failed to look up entry "DF_U64" header: "DF_RC"\n",
+				DP_DB(db), index - 1, DP_RC(rc));
+			return rc;
+		}
+		term = header.dre_term;
+	} else {
+		/* The LC has no entries. Get from the snapshot. */
+		term = lc_record.dlr_base_term;
+	}
+
+	/*
+	 * At a new index, reset the membership to only ourself. We also punch
+	 * the entry header and data just for consistency, for this may be a
+	 * membership change entry that, for instance, adds a node other than
+	 * ourself, which contradicts with the new membership of only ourself.
+ 	 */
+	replicas.rl_ranks = &self;
+	replicas.rl_nr = 1;
+	rc = rdb_raft_store_replicas(db->d_lc, index, &replicas);
+	if (rc != 0) {
+		D_ERROR(DF_DB": failed to reset membership: "DF_RC"\n", DP_DB(db), DP_RC(rc));
+		return rc;
+	}
+	keys[0] = rdb_lc_entry_header;
+	keys[1] = rdb_lc_entry_data;
+	rc = rdb_lc_punch(db->d_lc, index, RDB_LC_ATTRS, 2 /* n */, keys);
+	if (rc != 0) {
+		D_ERROR(DF_DB": failed to punch entry: "DF_RC"\n", DP_DB(db), DP_RC(rc));
+		return rc;
+	}
+
+	/*
+	 * Update the LC base and tail. Note that, if successful, this
+	 * "publishes" all the modifications above and effectively commits all
+	 * entries.
+	 */
+	lc_record.dlr_base = index;
+	lc_record.dlr_base_term = term;
+	lc_record.dlr_tail = index + 1;
+	d_iov_set(&value, &lc_record, sizeof(lc_record));
+	rc = rdb_mc_update(db->d_mc, RDB_MC_ATTRS, 1 /* n */, &rdb_mc_lc, &value);
+	if (rc != 0) {
+		D_ERROR(DF_DB": failed to update LC record: "DF_RC"\n", DP_DB(db), DP_RC(rc));
+		return rc;
+	}
+	D_INFO(DF_DB": updated LC reocrd: base="DF_U64"->"DF_U64" base_term="DF_U64"->"DF_U64
+	       " tail="DF_U64"->"DF_U64"\n", DP_DB(db),
+	       db->d_lc_record.dlr_base, lc_record.dlr_base,
+	       db->d_lc_record.dlr_base_term, lc_record.dlr_base_term,
+	       db->d_lc_record.dlr_tail, lc_record.dlr_tail);
+	db->d_lc_record = lc_record;
+
+	return 0;
+}
+
 /*
  * Load raft persistent state, if any. Our raft callbacks must be registered
  * already, because rdb_raft_cb_notify_membership_event is required. We use
@@ -2453,8 +2553,12 @@ out:
 	return rc;
 }
 
+/*
+ * Start Raft for db. If dictate is true, reset the membership to only ourself
+ * (for catastrophic recovery).
+ */
 int
-rdb_raft_start(struct rdb *db)
+rdb_raft_start(struct rdb *db, bool dictate)
 {
 	int	election_timeout;
 	int	request_timeout;
@@ -2505,11 +2609,21 @@ rdb_raft_start(struct rdb *db)
 		goto err_replies_cv;
 	}
 
+	rc = rdb_raft_open_lc(db);
+	if (rc != 0)
+		goto err_compact_cv;
+
+	if (dictate) {
+		rc = rdb_raft_dictate(db);
+		if (rc != 0)
+			goto err_lc;
+	}
+
 	db->d_raft = raft_new();
 	if (db->d_raft == NULL) {
 		D_ERROR(DF_DB": failed to create raft object\n", DP_DB(db));
 		rc = -DER_NOMEM;
-		goto err_compact_cv;
+		goto err_lc;
 	}
 
 	raft_set_callbacks(db->d_raft, &rdb_raft_cbs, db);
@@ -2527,7 +2641,7 @@ rdb_raft_start(struct rdb *db)
 
 	rc = dss_ult_create(rdb_recvd, db, DSS_XS_SELF, 0, 0, &db->d_recvd);
 	if (rc != 0)
-		goto err_lc;
+		goto err_raft_state;
 	rc = dss_ult_create(rdb_timerd, db, DSS_XS_SELF, 0, 0, &db->d_timerd);
 	if (rc != 0)
 		goto err_recvd;
@@ -2563,10 +2677,12 @@ err_recvd:
 	rc = ABT_thread_join(db->d_recvd);
 	D_ASSERTF(rc == 0, ""DF_RC"\n", DP_RC(rc));
 	ABT_thread_free(&db->d_recvd);
-err_lc:
+err_raft_state:
 	rdb_raft_unload_lc(db);
 err_raft:
 	raft_free(db->d_raft);
+err_lc:
+	rdb_raft_close_lc(db);
 err_compact_cv:
 	ABT_cond_free(&db->d_compact_cv);
 err_replies_cv:
@@ -2630,6 +2746,7 @@ rdb_raft_stop(struct rdb *db)
 
 	rdb_raft_unload_lc(db);
 	raft_free(db->d_raft);
+	rdb_raft_close_lc(db);
 	ABT_cond_free(&db->d_compact_cv);
 	ABT_cond_free(&db->d_replies_cv);
 	ABT_cond_free(&db->d_events_cv);

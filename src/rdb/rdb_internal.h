@@ -46,6 +46,7 @@ struct rdb {
 	/* General fields */
 	d_list_t		d_entry;	/* in rdb_hash */
 	uuid_t			d_uuid;		/* of database */
+	uint32_t		d_version;	/* of database */
 	ABT_mutex		d_mutex;	/* d_replies, d_replies_cv */
 	int			d_ref;		/* of callers and RPCs */
 	ABT_cond		d_ref_cv;	/* for d_ref decrements */
@@ -140,7 +141,7 @@ struct rdb_raft_node {
 
 int rdb_raft_init(daos_handle_t pool, daos_handle_t mc,
 		  const d_rank_list_t *replicas);
-int rdb_raft_start(struct rdb *db);
+int rdb_raft_start(struct rdb *db, bool dictate);
 void rdb_raft_stop(struct rdb *db);
 void rdb_raft_resign(struct rdb *db, uint64_t term);
 int rdb_raft_campaign(struct rdb *db);

@@ -17,8 +17,8 @@
 #include "rdb_internal.h"
 #include "rdb_layout.h"
 
-static int rdb_start_internal(daos_handle_t pool, daos_handle_t mc,
-			      const uuid_t uuid, struct rdb_cbs *cbs, void *arg,
+static int rdb_start_internal(daos_handle_t pool, daos_handle_t mc, uint32_t version,
+			      const uuid_t uuid, struct rdb_cbs *cbs, void *arg, bool dictate,
 			      struct rdb **dbp);
 
 /**
@@ -87,7 +87,7 @@ rdb_create(const char *path, const uuid_t uuid, size_t size,
 	if (rc != 0)
 		goto out_mc_hdl;
 
-	rc = rdb_start_internal(pool, mc, uuid, cbs, arg, dbp);
+	rc = rdb_start_internal(pool, mc, version, uuid, cbs, arg, false /* dictate */, dbp);
 
 out_mc_hdl:
 	if (rc != 0)
@@ -222,8 +222,8 @@ rdb_lookup(const uuid_t uuid)
  * the caller shall not close in this case.
  */
 static int
-rdb_start_internal(daos_handle_t pool, daos_handle_t mc, const uuid_t uuid,
-		   struct rdb_cbs *cbs, void *arg, struct rdb **dbp)
+rdb_start_internal(daos_handle_t pool, daos_handle_t mc, uint32_t version, const uuid_t uuid,
+		   struct rdb_cbs *cbs, void *arg, bool dictate, struct rdb **dbp)
 {
 	struct rdb	       *db;
 	int			rc;
@@ -241,6 +241,7 @@ rdb_start_internal(daos_handle_t pool, daos_handle_t mc, const uuid_t uuid,
 	}
 
 	uuid_copy(db->d_uuid, uuid);
+	db->d_version = version;
 	db->d_ref = 1;
 	db->d_cbs = cbs;
 	db->d_arg = arg;
@@ -307,7 +308,7 @@ rdb_start_internal(daos_handle_t pool, daos_handle_t mc, const uuid_t uuid,
 		SCM_TOTAL(&vps), SCM_FREE(&vps), SCM_SYS(&vps),
 		rdb_extra_sys[DAOS_MEDIA_SCM]);
 
-	rc = rdb_raft_start(db);
+	rc = rdb_raft_start(db, dictate);
 	if (rc != 0)
 		goto err_kvss;
 
@@ -340,18 +341,9 @@ err:
 	return rc;
 }
 
-/**
- * Start an RDB replica at \a path.
- *
- * \param[in]	path	replica path
- * \param[in]	uuid	database UUID
- * \param[in]	cbs	callbacks (not copied)
- * \param[in]	arg	argument for cbs
- * \param[out]	dbp	database
- */
-int
-rdb_start(const char *path, const uuid_t uuid, struct rdb_cbs *cbs, void *arg,
-	  struct rdb **dbp)
+static int
+rdb_start_common(const char *path, const uuid_t uuid, struct rdb_cbs *cbs, void *arg, bool dictate,
+		 struct rdb **dbp)
 {
 	daos_handle_t		pool;
 	daos_handle_t		mc;
@@ -360,7 +352,11 @@ rdb_start(const char *path, const uuid_t uuid, struct rdb_cbs *cbs, void *arg,
 	uint32_t		version;
 	int			rc;
 
-	D_INFO(DF_UUID": starting RDB %s\n", DP_UUID(uuid), path);
+	if (dictate)
+		D_WARN(DF_UUID": starting and forcefully resetting membership in RDB %s\n",
+		       DP_UUID(uuid), path);
+	else
+		D_INFO(DF_UUID": starting RDB %s\n", DP_UUID(uuid), path);
 
 	/*
 	 * RDB pools specify VOS_POF_SMALL for basic system memory reservation
@@ -431,7 +427,7 @@ rdb_start(const char *path, const uuid_t uuid, struct rdb_cbs *cbs, void *arg,
 		goto err_mc;
 	}
 
-	rc = rdb_start_internal(pool, mc, uuid, cbs, arg, dbp);
+	rc = rdb_start_internal(pool, mc, version, uuid, cbs, arg, dictate, dbp);
 	if (rc != 0)
 		goto err_mc;
 
@@ -444,6 +440,39 @@ err_pool:
 	vos_pool_close(pool);
 err:
 	return rc;
+}
+
+/**
+ * Start an RDB replica at \a path.
+ *
+ * \param[in]	path	replica path
+ * \param[in]	uuid	database UUID
+ * \param[in]	cbs	callbacks (not copied)
+ * \param[in]	arg	argument for cbs
+ * \param[out]	dbp	database
+ */
+int
+rdb_start(const char *path, const uuid_t uuid, struct rdb_cbs *cbs, void *arg, struct rdb **dbp)
+{
+	return rdb_start_common(path, uuid, cbs, arg, false /* dictate */, dbp);
+}
+
+/**
+ * Start an RDB after forcefully removing all other replicas from the
+ * membership. Callers must destroy all other replicas (or prevent them from
+ * starting) beforehand.
+ *
+ * This API is for catastrophic recovery scenarios, for instance, when more
+ * than a minority of replicas are lost.
+ *
+ *   1 Select the best replica to recover from.
+ *   2 Destroy all other replicas (or prevent them from starting).
+ *   3 Call rdb_dictate on the selected replica.
+ */
+int
+rdb_dictate(const char *path, const uuid_t uuid, struct rdb_cbs *cbs, void *arg, struct rdb **dbp)
+{
+	return rdb_start_common(path, uuid, cbs, arg, true /* dictate */, dbp);
 }
 
 /**
