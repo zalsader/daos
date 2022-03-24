@@ -46,8 +46,8 @@ typedef struct _Mgmt__PoolGetPropReq Mgmt__PoolGetPropReq;
 typedef struct _Mgmt__PoolGetPropResp Mgmt__PoolGetPropResp;
 typedef struct _Mgmt__PoolQueryTargetReq Mgmt__PoolQueryTargetReq;
 typedef struct _Mgmt__StorageTargetUsage Mgmt__StorageTargetUsage;
+typedef struct _Mgmt__TargetPerf Mgmt__TargetPerf;
 typedef struct _Mgmt__PoolQueryTargetInfo Mgmt__PoolQueryTargetInfo;
-typedef struct _Mgmt__PoolQueryTargetInfo__TargetPerf Mgmt__PoolQueryTargetInfo__TargetPerf;
 typedef struct _Mgmt__PoolQueryTargetResp Mgmt__PoolQueryTargetResp;
 
 
@@ -896,7 +896,7 @@ struct  _Mgmt__StorageTargetUsage
     , 0, 0, 0 }
 
 
-struct  _Mgmt__PoolQueryTargetInfo__TargetPerf
+struct  _Mgmt__TargetPerf
 {
   ProtobufCMessage base;
   /*
@@ -904,8 +904,8 @@ struct  _Mgmt__PoolQueryTargetInfo__TargetPerf
    */
   int32_t foo;
 };
-#define MGMT__POOL_QUERY_TARGET_INFO__TARGET_PERF__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&mgmt__pool_query_target_info__target_perf__descriptor) \
+#define MGMT__TARGET_PERF__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&mgmt__target_perf__descriptor) \
     , 0 }
 
 
@@ -949,7 +949,7 @@ struct  _Mgmt__PoolQueryTargetInfo
   /*
    * target performance data
    */
-  Mgmt__PoolQueryTargetInfo__TargetPerf *perf;
+  Mgmt__TargetPerf *perf;
   /*
    * this target's usage per storage tier
    */
@@ -1539,9 +1539,25 @@ Mgmt__StorageTargetUsage *
 void   mgmt__storage_target_usage__free_unpacked
                      (Mgmt__StorageTargetUsage *message,
                       ProtobufCAllocator *allocator);
-/* Mgmt__PoolQueryTargetInfo__TargetPerf methods */
-void   mgmt__pool_query_target_info__target_perf__init
-                     (Mgmt__PoolQueryTargetInfo__TargetPerf         *message);
+/* Mgmt__TargetPerf methods */
+void   mgmt__target_perf__init
+                     (Mgmt__TargetPerf         *message);
+size_t mgmt__target_perf__get_packed_size
+                     (const Mgmt__TargetPerf   *message);
+size_t mgmt__target_perf__pack
+                     (const Mgmt__TargetPerf   *message,
+                      uint8_t             *out);
+size_t mgmt__target_perf__pack_to_buffer
+                     (const Mgmt__TargetPerf   *message,
+                      ProtobufCBuffer     *buffer);
+Mgmt__TargetPerf *
+       mgmt__target_perf__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   mgmt__target_perf__free_unpacked
+                     (Mgmt__TargetPerf *message,
+                      ProtobufCAllocator *allocator);
 /* Mgmt__PoolQueryTargetInfo methods */
 void   mgmt__pool_query_target_info__init
                      (Mgmt__PoolQueryTargetInfo         *message);
@@ -1675,8 +1691,8 @@ typedef void (*Mgmt__PoolQueryTargetReq_Closure)
 typedef void (*Mgmt__StorageTargetUsage_Closure)
                  (const Mgmt__StorageTargetUsage *message,
                   void *closure_data);
-typedef void (*Mgmt__PoolQueryTargetInfo__TargetPerf_Closure)
-                 (const Mgmt__PoolQueryTargetInfo__TargetPerf *message,
+typedef void (*Mgmt__TargetPerf_Closure)
+                 (const Mgmt__TargetPerf *message,
                   void *closure_data);
 typedef void (*Mgmt__PoolQueryTargetInfo_Closure)
                  (const Mgmt__PoolQueryTargetInfo *message,
@@ -1722,8 +1738,8 @@ extern const ProtobufCMessageDescriptor mgmt__pool_get_prop_req__descriptor;
 extern const ProtobufCMessageDescriptor mgmt__pool_get_prop_resp__descriptor;
 extern const ProtobufCMessageDescriptor mgmt__pool_query_target_req__descriptor;
 extern const ProtobufCMessageDescriptor mgmt__storage_target_usage__descriptor;
+extern const ProtobufCMessageDescriptor mgmt__target_perf__descriptor;
 extern const ProtobufCMessageDescriptor mgmt__pool_query_target_info__descriptor;
-extern const ProtobufCMessageDescriptor mgmt__pool_query_target_info__target_perf__descriptor;
 extern const ProtobufCMessageDescriptor mgmt__pool_query_target_resp__descriptor;
 
 PROTOBUF_C__END_DECLS

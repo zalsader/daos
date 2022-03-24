@@ -1324,11 +1324,50 @@ void   mgmt__storage_target_usage__free_unpacked
   assert(message->base.descriptor == &mgmt__storage_target_usage__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   mgmt__pool_query_target_info__target_perf__init
-                     (Mgmt__PoolQueryTargetInfo__TargetPerf         *message)
+void   mgmt__target_perf__init
+                     (Mgmt__TargetPerf         *message)
 {
-  static const Mgmt__PoolQueryTargetInfo__TargetPerf init_value = MGMT__POOL_QUERY_TARGET_INFO__TARGET_PERF__INIT;
+  static const Mgmt__TargetPerf init_value = MGMT__TARGET_PERF__INIT;
   *message = init_value;
+}
+size_t mgmt__target_perf__get_packed_size
+                     (const Mgmt__TargetPerf *message)
+{
+  assert(message->base.descriptor == &mgmt__target_perf__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t mgmt__target_perf__pack
+                     (const Mgmt__TargetPerf *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &mgmt__target_perf__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t mgmt__target_perf__pack_to_buffer
+                     (const Mgmt__TargetPerf *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &mgmt__target_perf__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Mgmt__TargetPerf *
+       mgmt__target_perf__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Mgmt__TargetPerf *)
+     protobuf_c_message_unpack (&mgmt__target_perf__descriptor,
+                                allocator, len, data);
+}
+void   mgmt__target_perf__free_unpacked
+                     (Mgmt__TargetPerf *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &mgmt__target_perf__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   mgmt__pool_query_target_info__init
                      (Mgmt__PoolQueryTargetInfo         *message)
@@ -3707,7 +3746,7 @@ const ProtobufCMessageDescriptor mgmt__storage_target_usage__descriptor =
   (ProtobufCMessageInit) mgmt__storage_target_usage__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor mgmt__pool_query_target_info__target_perf__field_descriptors[1] =
+static const ProtobufCFieldDescriptor mgmt__target_perf__field_descriptors[1] =
 {
   {
     "foo",
@@ -3715,34 +3754,34 @@ static const ProtobufCFieldDescriptor mgmt__pool_query_target_info__target_perf_
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_INT32,
     0,   /* quantifier_offset */
-    offsetof(Mgmt__PoolQueryTargetInfo__TargetPerf, foo),
+    offsetof(Mgmt__TargetPerf, foo),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned mgmt__pool_query_target_info__target_perf__field_indices_by_name[] = {
+static const unsigned mgmt__target_perf__field_indices_by_name[] = {
   0,   /* field[0] = foo */
 };
-static const ProtobufCIntRange mgmt__pool_query_target_info__target_perf__number_ranges[1 + 1] =
+static const ProtobufCIntRange mgmt__target_perf__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor mgmt__pool_query_target_info__target_perf__descriptor =
+const ProtobufCMessageDescriptor mgmt__target_perf__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "mgmt.PoolQueryTargetInfo.TargetPerf",
+  "mgmt.TargetPerf",
   "TargetPerf",
-  "Mgmt__PoolQueryTargetInfo__TargetPerf",
+  "Mgmt__TargetPerf",
   "mgmt",
-  sizeof(Mgmt__PoolQueryTargetInfo__TargetPerf),
+  sizeof(Mgmt__TargetPerf),
   1,
-  mgmt__pool_query_target_info__target_perf__field_descriptors,
-  mgmt__pool_query_target_info__target_perf__field_indices_by_name,
-  1,  mgmt__pool_query_target_info__target_perf__number_ranges,
-  (ProtobufCMessageInit) mgmt__pool_query_target_info__target_perf__init,
+  mgmt__target_perf__field_descriptors,
+  mgmt__target_perf__field_indices_by_name,
+  1,  mgmt__target_perf__number_ranges,
+  (ProtobufCMessageInit) mgmt__target_perf__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor mgmt__pool_query_target_info__field_descriptors[4] =
@@ -3778,7 +3817,7 @@ static const ProtobufCFieldDescriptor mgmt__pool_query_target_info__field_descri
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
     offsetof(Mgmt__PoolQueryTargetInfo, perf),
-    &mgmt__pool_query_target_info__target_perf__descriptor,
+    &mgmt__target_perf__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */

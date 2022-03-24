@@ -402,14 +402,14 @@ type (
 	}
 
 	TargetPerf struct {
-		foo	int32
+		Foo	int32	`json:"foo"`
 	}
 
 	// PoolQueryTargetInfo contains information about a single target
 	PoolQueryTargetInfo struct {
 		Type	int32	`json:"target_type"`
 		State	int32	`json:"target_state"`
-		Perf	TargetPerf
+		Perf	*TargetPerf
 		Space	[]*StorageTargetUsage
 	}
 

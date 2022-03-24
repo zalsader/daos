@@ -297,23 +297,36 @@ func convertDaosSpaceInfo(in *C.struct_daos_space, mt C.uint) *mgmtpb.StorageTar
 }
 
 // For using the pretty printer that dmg uses for this target info.
-// 
+//
 // Does the same thing as ds_mgmt_drpc_pool_query_target() will do, to stuff the target info
 // into a protobuf message, then use the automatic conversion from proto to control.
 
 func convertPoolTargetInfo(ptinfo *C.daos_target_info_t) (*control.PoolQueryTargetInfo, error) {
 	pqtp := new(mgmtpb.PoolQueryTargetInfo)
 
+	// daos_target_info_t -> mgmtpb
 	pqtp.Type = int32(ptinfo.ta_type)
 	pqtp.State = int32(ptinfo.ta_state)
-	// pqtp.Perf.Foo  = int32(ptinfo.ta_perf.foo)
+	pqtp.Perf = &mgmtpb.TargetPerf{Foo: int32(ptinfo.ta_perf.foo)}
 	pqtp.Space = []*mgmtpb.StorageTargetUsage{
 		convertDaosSpaceInfo(&ptinfo.ta_space, C.DAOS_MEDIA_SCM),
 		convertDaosSpaceInfo(&ptinfo.ta_space, C.DAOS_MEDIA_NVME),
 	}
 
+	// Manual conversion mgmtpb -> control; convert.Types not working here for some reason
 	pqti := new(control.PoolQueryTargetInfo)
-	return pqti, convert.Types(pqtp, pqti)
+	pqti.Type = pqtp.Type
+	pqti.State = pqtp.State
+	pqti.Perf = &control.TargetPerf{Foo: pqtp.Perf.Foo}
+	pqti.Space = []*control.StorageTargetUsage {
+		&control.StorageTargetUsage{pqtp.Space[uint(C.DAOS_MEDIA_SCM)].Total, pqtp.Space[uint(C.DAOS_MEDIA_SCM)].Free},
+		&control.StorageTargetUsage{pqtp.Space[uint(C.DAOS_MEDIA_NVME)].Total, pqtp.Space[uint(C.DAOS_MEDIA_NVME)].Free},
+	}
+
+	// fmt.Printf("mgmtpb->control: type: %d, state:%d, perf.foo %d, space[SCM-tot,free]:%d,%d; space[NVME-tot,free]:%d,%d\n", pqti.Type, pqti.State, pqti.Perf.Foo, pqti.Space[uint(C.DAOS_MEDIA_SCM)].Total, pqti.Space[uint(C.DAOS_MEDIA_SCM)].Free, pqti.Space[uint(C.DAOS_MEDIA_NVME)].Total, pqti.Space[uint(C.DAOS_MEDIA_NVME)].Free)
+
+	//return pqti, convert.Types(pqtp, pqti)
+	return pqti, nil
 }
 
 func (cmd *poolQueryTargetsCmd) Execute(_ []string) error {
@@ -333,17 +346,16 @@ func (cmd *poolQueryTargetsCmd) Execute(_ []string) error {
 	var rc C.int
 
 	for tgt := 0; tgt < len(idxlist); tgt++ {
-		rc = C.daos_pool_query_target(cmd.cPoolHandle, C.uint32_t(tgt), C.uint32_t(cmd.Rank), &ptinfo, nil)
+		rc = C.daos_pool_query_target(cmd.cPoolHandle, C.uint32_t(idxlist[tgt]), C.uint32_t(cmd.Rank), &ptinfo, nil)
 		if err := daosError(rc); err != nil {
 			return errors.Wrapf(err,
 				"failed to query pool %s target %d:%d", cmd.poolUUID, cmd.Rank, tgt)
 		}
 
 		var tgtInfo *control.PoolQueryTargetInfo
-
 		tgtInfo, err = convertPoolTargetInfo(&ptinfo)
 		inforesp.Infos = append(inforesp.Infos, tgtInfo)
-		// inforesp.Infos[tgt], err = convertPoolTargetInfo(&ptinfo)
+		// cmd.log.Infof("engine rank %d target %d ptinfo state %d state %d\n", cmd.Rank, idxlist[tgt], int32(ptinfo.ta_state), tgtInfo.State)
 		if err != nil {
 			return err
 		}

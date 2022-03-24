@@ -2146,6 +2146,53 @@ func (x *StorageTargetUsage) GetMediaType() uint32 {
 	return 0
 }
 
+type TargetPerf struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Foo int32 `protobuf:"varint,1,opt,name=foo,proto3" json:"foo,omitempty"` // placeholder. TODO: storage/network bandwidth, latency, etc.
+}
+
+func (x *TargetPerf) Reset() {
+	*x = TargetPerf{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mgmt_pool_proto_msgTypes[29]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TargetPerf) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TargetPerf) ProtoMessage() {}
+
+func (x *TargetPerf) ProtoReflect() protoreflect.Message {
+	mi := &file_mgmt_pool_proto_msgTypes[29]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TargetPerf.ProtoReflect.Descriptor instead.
+func (*TargetPerf) Descriptor() ([]byte, []int) {
+	return file_mgmt_pool_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *TargetPerf) GetFoo() int32 {
+	if x != nil {
+		return x.Foo
+	}
+	return 0
+}
+
 // PoolQueryTargetInfo represents pool target query info for a single target.
 // The RPC response type (PoolQueryTargetResponse) contains a sequence of these.
 type PoolQueryTargetInfo struct {
@@ -2172,15 +2219,15 @@ type PoolQueryTargetInfo struct {
 	//	TS_DRAIN = 6; // Being drained
 	//}
 	//TargetState state = 2; // target state see enum daos_target_state_t
-	State int32                           `protobuf:"varint,2,opt,name=state,proto3" json:"state,omitempty"` // target state see enum daos_target_state_t
-	Perf  *PoolQueryTargetInfo_TargetPerf `protobuf:"bytes,3,opt,name=perf,proto3" json:"perf,omitempty"`    // target performance data
-	Space []*StorageTargetUsage           `protobuf:"bytes,4,rep,name=space,proto3" json:"space,omitempty"`  // this target's usage per storage tier
+	State int32                 `protobuf:"varint,2,opt,name=state,proto3" json:"state,omitempty"` // target state see enum daos_target_state_t
+	Perf  *TargetPerf           `protobuf:"bytes,3,opt,name=perf,proto3" json:"perf,omitempty"`    // target performance data
+	Space []*StorageTargetUsage `protobuf:"bytes,4,rep,name=space,proto3" json:"space,omitempty"`  // this target's usage per storage tier
 }
 
 func (x *PoolQueryTargetInfo) Reset() {
 	*x = PoolQueryTargetInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_mgmt_pool_proto_msgTypes[29]
+		mi := &file_mgmt_pool_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2193,7 +2240,7 @@ func (x *PoolQueryTargetInfo) String() string {
 func (*PoolQueryTargetInfo) ProtoMessage() {}
 
 func (x *PoolQueryTargetInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_mgmt_pool_proto_msgTypes[29]
+	mi := &file_mgmt_pool_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2206,7 +2253,7 @@ func (x *PoolQueryTargetInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoolQueryTargetInfo.ProtoReflect.Descriptor instead.
 func (*PoolQueryTargetInfo) Descriptor() ([]byte, []int) {
-	return file_mgmt_pool_proto_rawDescGZIP(), []int{29}
+	return file_mgmt_pool_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PoolQueryTargetInfo) GetType() int32 {
@@ -2223,7 +2270,7 @@ func (x *PoolQueryTargetInfo) GetState() int32 {
 	return 0
 }
 
-func (x *PoolQueryTargetInfo) GetPerf() *PoolQueryTargetInfo_TargetPerf {
+func (x *PoolQueryTargetInfo) GetPerf() *TargetPerf {
 	if x != nil {
 		return x.Perf
 	}
@@ -2250,7 +2297,7 @@ type PoolQueryTargetResp struct {
 func (x *PoolQueryTargetResp) Reset() {
 	*x = PoolQueryTargetResp{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_mgmt_pool_proto_msgTypes[30]
+		mi := &file_mgmt_pool_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2263,7 +2310,7 @@ func (x *PoolQueryTargetResp) String() string {
 func (*PoolQueryTargetResp) ProtoMessage() {}
 
 func (x *PoolQueryTargetResp) ProtoReflect() protoreflect.Message {
-	mi := &file_mgmt_pool_proto_msgTypes[30]
+	mi := &file_mgmt_pool_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2276,7 +2323,7 @@ func (x *PoolQueryTargetResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoolQueryTargetResp.ProtoReflect.Descriptor instead.
 func (*PoolQueryTargetResp) Descriptor() ([]byte, []int) {
-	return file_mgmt_pool_proto_rawDescGZIP(), []int{30}
+	return file_mgmt_pool_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PoolQueryTargetResp) GetStatus() int32 {
@@ -2306,7 +2353,7 @@ type ListPoolsResp_Pool struct {
 func (x *ListPoolsResp_Pool) Reset() {
 	*x = ListPoolsResp_Pool{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_mgmt_pool_proto_msgTypes[31]
+		mi := &file_mgmt_pool_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2319,7 +2366,7 @@ func (x *ListPoolsResp_Pool) String() string {
 func (*ListPoolsResp_Pool) ProtoMessage() {}
 
 func (x *ListPoolsResp_Pool) ProtoReflect() protoreflect.Message {
-	mi := &file_mgmt_pool_proto_msgTypes[31]
+	mi := &file_mgmt_pool_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2367,7 +2414,7 @@ type ListContResp_Cont struct {
 func (x *ListContResp_Cont) Reset() {
 	*x = ListContResp_Cont{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_mgmt_pool_proto_msgTypes[32]
+		mi := &file_mgmt_pool_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2380,7 +2427,7 @@ func (x *ListContResp_Cont) String() string {
 func (*ListContResp_Cont) ProtoMessage() {}
 
 func (x *ListContResp_Cont) ProtoReflect() protoreflect.Message {
-	mi := &file_mgmt_pool_proto_msgTypes[32]
+	mi := &file_mgmt_pool_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2401,53 +2448,6 @@ func (x *ListContResp_Cont) GetUuid() string {
 		return x.Uuid
 	}
 	return ""
-}
-
-type PoolQueryTargetInfo_TargetPerf struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Foo int32 `protobuf:"varint,1,opt,name=foo,proto3" json:"foo,omitempty"` // placeholder. TODO: storage/network bandwidth, latency, etc.
-}
-
-func (x *PoolQueryTargetInfo_TargetPerf) Reset() {
-	*x = PoolQueryTargetInfo_TargetPerf{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_mgmt_pool_proto_msgTypes[33]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *PoolQueryTargetInfo_TargetPerf) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PoolQueryTargetInfo_TargetPerf) ProtoMessage() {}
-
-func (x *PoolQueryTargetInfo_TargetPerf) ProtoReflect() protoreflect.Message {
-	mi := &file_mgmt_pool_proto_msgTypes[33]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PoolQueryTargetInfo_TargetPerf.ProtoReflect.Descriptor instead.
-func (*PoolQueryTargetInfo_TargetPerf) Descriptor() ([]byte, []int) {
-	return file_mgmt_pool_proto_rawDescGZIP(), []int{29, 0}
-}
-
-func (x *PoolQueryTargetInfo_TargetPerf) GetFoo() int32 {
-	if x != nil {
-		return x.Foo
-	}
-	return 0
 }
 
 var File_mgmt_pool_proto protoreflect.FileDescriptor
@@ -2680,30 +2680,29 @@ var file_mgmt_pool_proto_rawDesc = []byte{
 	0x61, 0x6c, 0x12, 0x12, 0x0a, 0x04, 0x66, 0x72, 0x65, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04,
 	0x52, 0x04, 0x66, 0x72, 0x65, 0x65, 0x12, 0x1d, 0x0a, 0x0a, 0x6d, 0x65, 0x64, 0x69, 0x61, 0x5f,
 	0x74, 0x79, 0x70, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x09, 0x6d, 0x65, 0x64, 0x69,
-	0x61, 0x54, 0x79, 0x70, 0x65, 0x22, 0xc9, 0x01, 0x0a, 0x13, 0x50, 0x6f, 0x6f, 0x6c, 0x51, 0x75,
+	0x61, 0x54, 0x79, 0x70, 0x65, 0x22, 0x1e, 0x0a, 0x0a, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x50,
+	0x65, 0x72, 0x66, 0x12, 0x10, 0x0a, 0x03, 0x66, 0x6f, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05,
+	0x52, 0x03, 0x66, 0x6f, 0x6f, 0x22, 0x95, 0x01, 0x0a, 0x13, 0x50, 0x6f, 0x6f, 0x6c, 0x51, 0x75,
 	0x65, 0x72, 0x79, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x12, 0x0a,
 	0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04, 0x74, 0x79, 0x70,
 	0x65, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05,
-	0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x12, 0x38, 0x0a, 0x04, 0x70, 0x65, 0x72, 0x66, 0x18,
-	0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x6d, 0x67, 0x6d, 0x74, 0x2e, 0x50, 0x6f, 0x6f,
-	0x6c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x49, 0x6e, 0x66, 0x6f,
-	0x2e, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x50, 0x65, 0x72, 0x66, 0x52, 0x04, 0x70, 0x65, 0x72,
-	0x66, 0x12, 0x2e, 0x0a, 0x05, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b,
-	0x32, 0x18, 0x2e, 0x6d, 0x67, 0x6d, 0x74, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x54,
-	0x61, 0x72, 0x67, 0x65, 0x74, 0x55, 0x73, 0x61, 0x67, 0x65, 0x52, 0x05, 0x73, 0x70, 0x61, 0x63,
-	0x65, 0x1a, 0x1e, 0x0a, 0x0a, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x50, 0x65, 0x72, 0x66, 0x12,
-	0x10, 0x0a, 0x03, 0x66, 0x6f, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x03, 0x66, 0x6f,
-	0x6f, 0x22, 0x5e, 0x0a, 0x13, 0x50, 0x6f, 0x6f, 0x6c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x61,
-	0x72, 0x67, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74,
-	0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
-	0x12, 0x2f, 0x0a, 0x05, 0x69, 0x6e, 0x66, 0x6f, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32,
-	0x19, 0x2e, 0x6d, 0x67, 0x6d, 0x74, 0x2e, 0x50, 0x6f, 0x6f, 0x6c, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x05, 0x69, 0x6e, 0x66, 0x6f,
-	0x73, 0x42, 0x3a, 0x5a, 0x38, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x64, 0x61, 0x6f, 0x73, 0x2d, 0x73, 0x74, 0x61, 0x63, 0x6b, 0x2f, 0x64, 0x61, 0x6f, 0x73, 0x2f,
-	0x73, 0x72, 0x63, 0x2f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2f, 0x63, 0x6f, 0x6d, 0x6d,
-	0x6f, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x6d, 0x67, 0x6d, 0x74, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x12, 0x24, 0x0a, 0x04, 0x70, 0x65, 0x72, 0x66, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x6d, 0x67, 0x6d, 0x74, 0x2e, 0x54, 0x61, 0x72,
+	0x67, 0x65, 0x74, 0x50, 0x65, 0x72, 0x66, 0x52, 0x04, 0x70, 0x65, 0x72, 0x66, 0x12, 0x2e, 0x0a,
+	0x05, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x6d,
+	0x67, 0x6d, 0x74, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x54, 0x61, 0x72, 0x67, 0x65,
+	0x74, 0x55, 0x73, 0x61, 0x67, 0x65, 0x52, 0x05, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x5e, 0x0a,
+	0x13, 0x50, 0x6f, 0x6f, 0x6c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74,
+	0x52, 0x65, 0x73, 0x70, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x2f, 0x0a, 0x05,
+	0x69, 0x6e, 0x66, 0x6f, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x6d, 0x67,
+	0x6d, 0x74, 0x2e, 0x50, 0x6f, 0x6f, 0x6c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x54, 0x61, 0x72, 0x67,
+	0x65, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x05, 0x69, 0x6e, 0x66, 0x6f, 0x73, 0x42, 0x3a, 0x5a,
+	0x38, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x61, 0x6f, 0x73,
+	0x2d, 0x73, 0x74, 0x61, 0x63, 0x6b, 0x2f, 0x64, 0x61, 0x6f, 0x73, 0x2f, 0x73, 0x72, 0x63, 0x2f,
+	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x6d, 0x67, 0x6d, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -2721,55 +2720,55 @@ func file_mgmt_pool_proto_rawDescGZIP() []byte {
 var file_mgmt_pool_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_mgmt_pool_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_mgmt_pool_proto_goTypes = []interface{}{
-	(PoolRebuildStatus_State)(0),           // 0: mgmt.PoolRebuildStatus.State
-	(*PoolCreateReq)(nil),                  // 1: mgmt.PoolCreateReq
-	(*PoolCreateResp)(nil),                 // 2: mgmt.PoolCreateResp
-	(*PoolDestroyReq)(nil),                 // 3: mgmt.PoolDestroyReq
-	(*PoolDestroyResp)(nil),                // 4: mgmt.PoolDestroyResp
-	(*PoolEvictReq)(nil),                   // 5: mgmt.PoolEvictReq
-	(*PoolEvictResp)(nil),                  // 6: mgmt.PoolEvictResp
-	(*PoolExcludeReq)(nil),                 // 7: mgmt.PoolExcludeReq
-	(*PoolExcludeResp)(nil),                // 8: mgmt.PoolExcludeResp
-	(*PoolDrainReq)(nil),                   // 9: mgmt.PoolDrainReq
-	(*PoolDrainResp)(nil),                  // 10: mgmt.PoolDrainResp
-	(*PoolExtendReq)(nil),                  // 11: mgmt.PoolExtendReq
-	(*PoolExtendResp)(nil),                 // 12: mgmt.PoolExtendResp
-	(*PoolReintegrateReq)(nil),             // 13: mgmt.PoolReintegrateReq
-	(*PoolReintegrateResp)(nil),            // 14: mgmt.PoolReintegrateResp
-	(*ListPoolsReq)(nil),                   // 15: mgmt.ListPoolsReq
-	(*ListPoolsResp)(nil),                  // 16: mgmt.ListPoolsResp
-	(*ListContReq)(nil),                    // 17: mgmt.ListContReq
-	(*ListContResp)(nil),                   // 18: mgmt.ListContResp
-	(*PoolQueryReq)(nil),                   // 19: mgmt.PoolQueryReq
-	(*StorageUsageStats)(nil),              // 20: mgmt.StorageUsageStats
-	(*PoolRebuildStatus)(nil),              // 21: mgmt.PoolRebuildStatus
-	(*PoolQueryResp)(nil),                  // 22: mgmt.PoolQueryResp
-	(*PoolProperty)(nil),                   // 23: mgmt.PoolProperty
-	(*PoolSetPropReq)(nil),                 // 24: mgmt.PoolSetPropReq
-	(*PoolSetPropResp)(nil),                // 25: mgmt.PoolSetPropResp
-	(*PoolGetPropReq)(nil),                 // 26: mgmt.PoolGetPropReq
-	(*PoolGetPropResp)(nil),                // 27: mgmt.PoolGetPropResp
-	(*PoolQueryTargetReq)(nil),             // 28: mgmt.PoolQueryTargetReq
-	(*StorageTargetUsage)(nil),             // 29: mgmt.StorageTargetUsage
-	(*PoolQueryTargetInfo)(nil),            // 30: mgmt.PoolQueryTargetInfo
-	(*PoolQueryTargetResp)(nil),            // 31: mgmt.PoolQueryTargetResp
-	(*ListPoolsResp_Pool)(nil),             // 32: mgmt.ListPoolsResp.Pool
-	(*ListContResp_Cont)(nil),              // 33: mgmt.ListContResp.Cont
-	(*PoolQueryTargetInfo_TargetPerf)(nil), // 34: mgmt.PoolQueryTargetInfo.TargetPerf
+	(PoolRebuildStatus_State)(0), // 0: mgmt.PoolRebuildStatus.State
+	(*PoolCreateReq)(nil),        // 1: mgmt.PoolCreateReq
+	(*PoolCreateResp)(nil),       // 2: mgmt.PoolCreateResp
+	(*PoolDestroyReq)(nil),       // 3: mgmt.PoolDestroyReq
+	(*PoolDestroyResp)(nil),      // 4: mgmt.PoolDestroyResp
+	(*PoolEvictReq)(nil),         // 5: mgmt.PoolEvictReq
+	(*PoolEvictResp)(nil),        // 6: mgmt.PoolEvictResp
+	(*PoolExcludeReq)(nil),       // 7: mgmt.PoolExcludeReq
+	(*PoolExcludeResp)(nil),      // 8: mgmt.PoolExcludeResp
+	(*PoolDrainReq)(nil),         // 9: mgmt.PoolDrainReq
+	(*PoolDrainResp)(nil),        // 10: mgmt.PoolDrainResp
+	(*PoolExtendReq)(nil),        // 11: mgmt.PoolExtendReq
+	(*PoolExtendResp)(nil),       // 12: mgmt.PoolExtendResp
+	(*PoolReintegrateReq)(nil),   // 13: mgmt.PoolReintegrateReq
+	(*PoolReintegrateResp)(nil),  // 14: mgmt.PoolReintegrateResp
+	(*ListPoolsReq)(nil),         // 15: mgmt.ListPoolsReq
+	(*ListPoolsResp)(nil),        // 16: mgmt.ListPoolsResp
+	(*ListContReq)(nil),          // 17: mgmt.ListContReq
+	(*ListContResp)(nil),         // 18: mgmt.ListContResp
+	(*PoolQueryReq)(nil),         // 19: mgmt.PoolQueryReq
+	(*StorageUsageStats)(nil),    // 20: mgmt.StorageUsageStats
+	(*PoolRebuildStatus)(nil),    // 21: mgmt.PoolRebuildStatus
+	(*PoolQueryResp)(nil),        // 22: mgmt.PoolQueryResp
+	(*PoolProperty)(nil),         // 23: mgmt.PoolProperty
+	(*PoolSetPropReq)(nil),       // 24: mgmt.PoolSetPropReq
+	(*PoolSetPropResp)(nil),      // 25: mgmt.PoolSetPropResp
+	(*PoolGetPropReq)(nil),       // 26: mgmt.PoolGetPropReq
+	(*PoolGetPropResp)(nil),      // 27: mgmt.PoolGetPropResp
+	(*PoolQueryTargetReq)(nil),   // 28: mgmt.PoolQueryTargetReq
+	(*StorageTargetUsage)(nil),   // 29: mgmt.StorageTargetUsage
+	(*TargetPerf)(nil),           // 30: mgmt.TargetPerf
+	(*PoolQueryTargetInfo)(nil),  // 31: mgmt.PoolQueryTargetInfo
+	(*PoolQueryTargetResp)(nil),  // 32: mgmt.PoolQueryTargetResp
+	(*ListPoolsResp_Pool)(nil),   // 33: mgmt.ListPoolsResp.Pool
+	(*ListContResp_Cont)(nil),    // 34: mgmt.ListContResp.Cont
 }
 var file_mgmt_pool_proto_depIdxs = []int32{
 	23, // 0: mgmt.PoolCreateReq.properties:type_name -> mgmt.PoolProperty
-	32, // 1: mgmt.ListPoolsResp.pools:type_name -> mgmt.ListPoolsResp.Pool
-	33, // 2: mgmt.ListContResp.containers:type_name -> mgmt.ListContResp.Cont
+	33, // 1: mgmt.ListPoolsResp.pools:type_name -> mgmt.ListPoolsResp.Pool
+	34, // 2: mgmt.ListContResp.containers:type_name -> mgmt.ListContResp.Cont
 	0,  // 3: mgmt.PoolRebuildStatus.state:type_name -> mgmt.PoolRebuildStatus.State
 	21, // 4: mgmt.PoolQueryResp.rebuild:type_name -> mgmt.PoolRebuildStatus
 	20, // 5: mgmt.PoolQueryResp.tier_stats:type_name -> mgmt.StorageUsageStats
 	23, // 6: mgmt.PoolSetPropReq.properties:type_name -> mgmt.PoolProperty
 	23, // 7: mgmt.PoolGetPropReq.properties:type_name -> mgmt.PoolProperty
 	23, // 8: mgmt.PoolGetPropResp.properties:type_name -> mgmt.PoolProperty
-	34, // 9: mgmt.PoolQueryTargetInfo.perf:type_name -> mgmt.PoolQueryTargetInfo.TargetPerf
+	30, // 9: mgmt.PoolQueryTargetInfo.perf:type_name -> mgmt.TargetPerf
 	29, // 10: mgmt.PoolQueryTargetInfo.space:type_name -> mgmt.StorageTargetUsage
-	30, // 11: mgmt.PoolQueryTargetResp.infos:type_name -> mgmt.PoolQueryTargetInfo
+	31, // 11: mgmt.PoolQueryTargetResp.infos:type_name -> mgmt.PoolQueryTargetInfo
 	12, // [12:12] is the sub-list for method output_type
 	12, // [12:12] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
@@ -3132,7 +3131,7 @@ func file_mgmt_pool_proto_init() {
 			}
 		}
 		file_mgmt_pool_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PoolQueryTargetInfo); i {
+			switch v := v.(*TargetPerf); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3144,7 +3143,7 @@ func file_mgmt_pool_proto_init() {
 			}
 		}
 		file_mgmt_pool_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PoolQueryTargetResp); i {
+			switch v := v.(*PoolQueryTargetInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3156,7 +3155,7 @@ func file_mgmt_pool_proto_init() {
 			}
 		}
 		file_mgmt_pool_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListPoolsResp_Pool); i {
+			switch v := v.(*PoolQueryTargetResp); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3168,7 +3167,7 @@ func file_mgmt_pool_proto_init() {
 			}
 		}
 		file_mgmt_pool_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListContResp_Cont); i {
+			switch v := v.(*ListPoolsResp_Pool); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3180,7 +3179,7 @@ func file_mgmt_pool_proto_init() {
 			}
 		}
 		file_mgmt_pool_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PoolQueryTargetInfo_TargetPerf); i {
+			switch v := v.(*ListContResp_Cont); i {
 			case 0:
 				return &v.state
 			case 1:
