@@ -1226,7 +1226,8 @@ class TestWithServers(TestWithoutServers):
         self._teardown_errors.extend(self.stop_job_managers())
 
         # Destroy any containers first
-        self._teardown_errors.extend(self.destroy_containers(self.container))
+        self.log.info("SKIPPING destroying containers")
+        #self._teardown_errors.extend(self.destroy_containers(self.container))
 
         # Destroy any pools next
         self._teardown_errors.extend(self.destroy_pools(self.pool))
