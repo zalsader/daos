@@ -1623,7 +1623,8 @@ dc_tx_commit_prepare(struct dc_tx *tx, tse_task_t *task)
 		else
 			bit_map = NIL_BITMAP;
 
-		i = obj_grp_leader_get(obj, grp_idx, tx->tx_pm_ver, bit_map);
+		i = pl_select_leader(obj->cob_md.omd_id, grp_idx, obj->cob_grp_size, bit_map, NULL,
+				     NULL, obj_get_shard, obj);
 		if (i < 0)
 			D_GOTO(out, rc = i);
 
