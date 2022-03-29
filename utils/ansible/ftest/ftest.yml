@@ -1,0 +1,14 @@
+---
+# Ansible scripts for deploying the DAOS functional test platform
+
+- hosts: daos_devs
+  tasks:
+    - import_tasks: tasks/daos_devs.yml
+
+- hosts: daos_servers
+  tasks:
+    - import_tasks: tasks/daos_servers.yml
+
+- hosts: daos_clients
+  tasks:
+    - import_tasks: tasks/daos_clients.yml

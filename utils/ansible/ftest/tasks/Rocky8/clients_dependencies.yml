@@ -1,0 +1,24 @@
+---
+# Install dependencies of an admin/client node
+
+- name: Install DAOS client
+  remote_user: root
+  dnf:
+    state: latest
+    update_cache: yes
+    name:
+      - daos-client
+
+- name: Uninstall DAOS client
+  remote_user: root
+  dnf:
+    state: removed
+    autoremove: no
+    name:
+      - daos-client
+      - daos
+      - spdk
+      - pmdk
+      - mercury
+      # XXX Could not be removed: openmpi depend on it
+      # - libfabric

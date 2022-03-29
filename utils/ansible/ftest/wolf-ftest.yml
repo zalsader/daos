@@ -1,0 +1,16 @@
+---
+# Sample inventory of a DAOS functional platform running on the wolf cluster
+
+all:
+  vars:
+    daos_install_dir: /home/ckochhof/daos
+  children:
+    daos_devs:
+      hosts:
+        wolf-66:
+    daos_servers:
+      hosts:
+        wolf-66:
+    daos_clients:
+      hosts:
+        wolf-66:

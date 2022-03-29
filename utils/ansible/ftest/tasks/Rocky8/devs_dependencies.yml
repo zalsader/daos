@@ -1,0 +1,38 @@
+---
+# Install dependencies of a developmene node
+
+- name: Install dnf builddep plugin
+  remote_user: root
+  dnf:
+    state: latest
+    update_cache: yes
+    name: dnf-plugins-core
+
+- name: Install DAOS building dependencies
+  remote_user: root
+  command:
+    dnf builddep -y "{{ playbook_dir }}/file/daos.spec"
+  args:
+    warn: false
+  register: dnf_result
+  become: yes
+  changed_when: '"Nothing to do" not in dnf_result.stdout'
+
+- name: Install SPDK missing dependencies
+  remote_user: root
+  dnf:
+    state: latest
+    update_cache: yes
+    name:
+      - meson
+
+- name: Install avocado for DAOS
+  remote_user: root
+  dnf:
+    state: latest
+    update_cache: yes
+    name:
+      - python3-avocado
+      - python3-avocado-plugins-output-html
+      - python3-avocado-plugins-varianter-yaml-to-mux
+      - clustershell

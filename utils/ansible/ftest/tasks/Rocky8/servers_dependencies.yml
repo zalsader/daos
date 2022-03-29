@@ -1,0 +1,24 @@
+---
+# Install dependencies of a server node
+
+- name: Install DAOS server
+  remote_user: root
+  dnf:
+    state: latest
+    update_cache: yes
+    name:
+      - daos-server
+
+- name: Uninstall DAOS server
+  remote_user: root
+  dnf:
+    state: removed
+    autoremove: no
+    name:
+      - daos-server
+      - daos
+      - spdk
+      - pmdk
+      - mercury
+      # XXX Could not be removed: openmpi depend on it
+      # - libfabric

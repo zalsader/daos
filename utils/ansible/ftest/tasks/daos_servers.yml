@@ -1,0 +1,40 @@
+---
+# Ansible scripts for deploying a DAOS development node
+
+- name: Base DAOS configuration
+  import_tasks: daos_base.yml
+
+- name: Install dependency packages
+  include_tasks: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}{{ ansible_distribution_major_version}}/servers_dependencies.yml"
+
+- name: Update systemd service for daos-server
+  remote_user: root
+  template:
+    src: daos_server.service.j2
+    dest: /usr/lib/systemd/system/daos_server.service
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+
+- name: Create base daos-server configuration file tree
+  remote_user: root
+  file:
+    path: /etc/daos/certs
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+
+- name: Create client certificate daos-server configuration file tree
+  remote_user: root
+  file:
+    path: /etc/daos/certs/clients
+    state: directory
+    owner: daos_server
+    group: daos_server
+    mode: '0700'
+    recurse: yes

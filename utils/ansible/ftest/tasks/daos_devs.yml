@@ -1,0 +1,10 @@
+---
+# Ansible scripts for deploying a DAOS development node
+
+- name: Base DAOS configuration
+  import_tasks: daos_base.yml
+
+- name: Install dependency packages
+  include_tasks: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}{{ ansible_distribution_major_version}}/devs_dependencies.yml"

@@ -1,0 +1,22 @@
+---
+# Ansible scripts donfiguring MPÏ modules
+
+- name: Create MPI module directory
+  remote_user: root
+  file:
+    path: /etc/modulefiles/mpi
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+
+- name: Create MPI module configuration file
+  remote_user: root
+  file:
+    src: "{{ daos_openmpi_module_path }}"
+    path: /etc/modulefiles/mpi/mlnx_openmpi-x86_64
+    state: link
+    owner: root
+    group: root
+    mode: '0755'
