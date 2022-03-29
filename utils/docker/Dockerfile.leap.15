@@ -15,7 +15,7 @@ ARG CB0
 # Use local repo server if present
 ARG REPO_FILE_URL
 RUN if [ -n "$REPO_FILE_URL" ]; then                            \
-        cd /etc/yum.repos.d/ &&                                 \
+        cd /etc/zypp/repos.d/ &&                                \
         curl -f -o daos_ci-fedora-artifactory.repo.tmp          \
              "$REPO_FILE_URL"daos_ci-fedora-artifactory.repo && \
         rm -f *.repo &&                                         \
