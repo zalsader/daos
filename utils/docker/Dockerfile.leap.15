@@ -59,7 +59,7 @@ RUN for repo in $REPOS; do                                                      
 
 # Install OS updates and package.  Include basic tools and daos dependencies
 COPY ./utils/scripts/install-leap15.sh /tmp/install.sh
-RUN chmod +x /tmp/install.sh && dnf upgrade && /tmp/install.sh && dnf clean all && \
+RUN chmod +x /tmp/install.sh && dnf -y upgrade && /tmp/install.sh && dnf clean all && \
 
 RUN if ! grep MODULEPATH=.*/usr/share/modules /etc/profile.d/lmod.sh; then \
         sed -e '/MODULEPATH=/s/$/:\/usr\/share\/modules/'                  \
