@@ -6,7 +6,7 @@
 #
 
 # Pull base image
-FROM opensuse/leap:15.2
+FROM opensuse/leap:15.3
 LABEL maintainer="daos@daos.groups.io"
 
 # Intermittent cache-bust.  Used to reduce load on the actual CACHEBUST later.
@@ -15,27 +15,14 @@ ARG CB0
 # Use local repo server if present
 ARG REPO_FILE_URL
 RUN if [ -n "$REPO_FILE_URL" ]; then                            \
+         zypper --non-interactive install curl;                 \
         cd /etc/zypp/repos.d/ &&                                \
-        curl -f -o daos_ci-fedora-artifactory.repo.tmp          \
-             "$REPO_FILE_URL"daos_ci-fedora-artifactory.repo && \
+        curl -k -f -o daos_ci-leap15-artifactory.repo.tmp       \
+             "$REPO_FILE_URL"daos_ci-leap15-artifactory.repo && \
         rm -f *.repo &&                                         \
-        mv daos_ci-fedora-artifactory.repo{.tmp,};              \
+        mv daos_ci-leap15-artifactory.repo{.tmp,};              \
     fi
 
-# If a local DAOS repository is supplied, then we should use it
-# This is mainly for quickbuilds
-ARG REPO_URL
-ARG REPO_DAOS
-RUN if [ -n "$REPO_DAOS" ]; then                                               \
-      zypper --non-interactive addrepo --gpgcheck-allow-unsigned-repo          \
-             ${REPO_URL}${REPO_DAOS} daos-stack-daos-group-repo &&             \
-      zypper --non-interactive modifyrepo --no-gpgcheck                        \
-             daos-stack-daos-group-repo &&                                     \
-      zypper addlock --repo daos-stack-daos-group-repo                         \
-             'fuse<3' 'libfuse-devel<3' 'fuse-libs<3'                          \
-             'fuse-debuginfo<3' 'ompi' &&                                      \
-      zypper clean --all;                                                      \
-    fi
 # Allow packages to change vendors
 RUN echo "solver.allowVendorChange = true" >> /etc/zypp/zypp.conf
 
@@ -59,8 +46,8 @@ RUN for repo in $REPOS; do                                                      
 
 # Install OS updates and package.  Include basic tools and daos dependencies
 COPY ./utils/scripts/install-leap15.sh /tmp/install.sh
-RUN chmod +x /tmp/install.sh && dnf -y upgrade && /tmp/install.sh && dnf clean all && \
-
+RUN chmod +x /tmp/install.sh && zypper --non-interactive --gpg-auto-import-keys update && /tmp/install.sh && zypper --non-interactive clean --all && \
+    rm -f /tmp/install.sh
 RUN if ! grep MODULEPATH=.*/usr/share/modules /etc/profile.d/lmod.sh; then \
         sed -e '/MODULEPATH=/s/$/:\/usr\/share\/modules/'                  \
                /etc/profile.d/lmod.sh;                                     \
@@ -93,10 +80,10 @@ RUN if $QUICKBUILD; then                                                       \
         echo "Installing: $QUICKBUILD_DEPS";                                   \
         echo "$QUICKBUILD_DEPS" | sed -e '/^$/d' | tr '\n' '\0' |              \
               xargs -0 zypper --non-interactive install;                       \
-        zypper clean --all;                                                    \
+        zypper --non-interactive clean --all;                                                    \
     fi
 
-RUN zypper addlock fuse fuse-libs fuse-devel \
+RUN zypper --non-interactive addlock fuse fuse-libs fuse-devel \
            libraft0 raft-devel mercury mercury-devel
 
 WORKDIR /home/daos/pre
@@ -118,7 +105,7 @@ USER root:root
 RUN [ "$DAOS_DEPS_BUILD" != "yes" ] || {                                       \
         zypper --non-interactive --gpg-auto-import-keys --no-gpg-checks ref && \
         zypper --non-interactive update &&                                     \
-        zypper clean --all;                                                    \
+        zypper --non-interactive clean --all;                                                    \
     }
 USER daos_server:daos_server
 
@@ -145,7 +132,7 @@ RUN [ "$COMPILER" != "icc" ] || {  \
         zypper --non-interactive addrepo https://yum.repos.intel.com/oneapi oneAPI &&            \
         zypper --non-interactive --gpg-auto-import-keys update --repo oneAPI &&                  \
         zypper --non-interactive install --repo oneAPI --name intel-oneapi-compiler-dpcpp-cpp && \
-        zypper clean --all;                                                                      \
+        zypper --non-interactive clean --all;                                                                      \
     }
 
 # force an upgrade to get any newly built RPMs, but only if CACHEBUST is set.
@@ -153,7 +140,7 @@ ARG CACHEBUST
 RUN [ -z "$CACHEBUST" ] || {                                                   \
         zypper --non-interactive --gpg-auto-import-keys --no-gpg-checks ref && \
         zypper --non-interactive update &&                                     \
-        zypper clean --all;                                                    \
+        zypper --non-interactive clean --all;                                                    \
     }
 USER daos_server:daos_server
 

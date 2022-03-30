@@ -7,8 +7,9 @@
 # interactively then these two commands can be used to set dnf into automatic mode.
 # dnf --assumeyes install dnf-plugins-core
 # dnf config-manager --save --setopt=assumeyes=True
+set -e
 
-dnf --nodocs install \
+dnf -y --nodocs install \
     boost-python3-devel \
     bzip2 \
     clang \
@@ -64,6 +65,7 @@ dnf --nodocs install \
     python3-tabulate \
     python3-yaml \
     sg3_utils \
+    sudo \
     valgrind-devel \
     which \
     yasm
