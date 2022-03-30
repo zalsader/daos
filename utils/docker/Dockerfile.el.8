@@ -15,7 +15,8 @@ ARG CB0
 
 # Use local repo server if present
 ARG REPO_FILE_URL
-RUN if [ -n "$REPO_FILE_URL" ]; then                             \
+RUN set -e;                                                      \
+    if [ -n "$REPO_FILE_URL" ]; then                             \
         cd /etc/yum.repos.d/ &&                                  \
         curl -k -f -o daos_ci-el8-artifactory.repo.tmp           \
              "$REPO_FILE_URL"daos_ci-el8-artifactory.repo &&     \
@@ -24,7 +25,7 @@ RUN if [ -n "$REPO_FILE_URL" ]; then                             \
         done;                                                    \
         mv daos_ci-el8-artifactory.repo{.tmp,};                  \
     fi;                                                          \
-    dnf --disablerepo \*epel\* -y install epel-release;          \
+    dnf --disablerepo \*epel\* -y install epel-release           \
                                           dnf-plugins-core;      \
     if [ -n "$REPO_FILE_URL" ]; then                             \
         PT_REPO=daos_ci-rocky8-powertools-artifactory;           \
