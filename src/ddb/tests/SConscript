@@ -1,0 +1,31 @@
+"""Build tests"""
+import daos_build
+import os
+
+def scons():
+    """Execute build"""
+    Import('base_env', 'prereqs', 'ddblib')
+
+    denv = base_env.Clone()
+
+    # Add runtime paths for daos libraries
+    denv.AppendUnique(RPATH_FULL=['$PREFIX/lib64/daos_srv'])
+    prereqs.require(denv, 'argobots', 'protobufc', 'pmdk')
+
+    # for ddb includes
+    denv.AppendUnique(CPPPATH=[Dir('../').srcnode()])
+    denv.AppendUnique(LIBPATH=[Dir('../')])
+
+    libs = ['vos', 'daos_common_pmem', 'abt', 'gurt', 'daos', 'uuid', 'bio',
+            'cmocka']
+    ddb_tests = daos_build.program(denv, 'ddb_tests',
+                                   [ddblib, 'ddb_cli_tests.c',
+                                    'ddb_commands_tests.c',
+                                    'ddb_parsing_tests.c', 'ddb_test_driver.c',
+                                    'ddb_vos_tests.c'],
+                                   LIBS=libs)
+
+    denv.Install('$PREFIX/bin/', ddb_tests)
+
+if __name__ == "SCons.Script":
+    scons()
