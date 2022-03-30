@@ -21,7 +21,8 @@ RUN if [ -n "$REPO_FILE_URL" ]; then                             \
         rm -f *.repo &&                                          \
         mv daos_ci-fedora-artifactory.repo{.tmp,};               \
     fi;                                                          \
-    yum -y install dnf;                                          \
+    yum -y install dnf; \
+    dnf -y install epel-release;                             \
     yum clean all;                                              \
     dnf clean all
 
