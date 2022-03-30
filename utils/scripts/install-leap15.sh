@@ -68,4 +68,3 @@ zypper --non-interactive install \
     valgrind-devel \
     which \
     yasm
-zypper clean --all

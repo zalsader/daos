@@ -75,7 +75,7 @@ dnf -y --nodocs install \
 # installed specifically.
 
 if [ -e /etc/fedora-release ]; then
-        dnf install java-1.8.0-openjdk-devel maven-openjdk8
+        dnf -y install java-1.8.0-openjdk-devel maven-openjdk8
 else
-        dnf install maven
+        dnf -y install maven
 fi
